@@ -138,7 +138,7 @@ class BasicShape
             glUniform3f(glGetUniformLocation(shader.Program, "viewPos"), camera.cameraPosition.x, camera.cameraPosition.y, camera.cameraPosition.z);
 
             glUniform3f(glGetUniformLocation(shader.Program, "pointLights[0].position"), pointLightPositions[0].x, pointLightPositions[0].y, pointLightPositions[0].z);
-            glUniform3f(glGetUniformLocation(shader.Program, "pointLights[0].ambient"), 0.05f, 0.05f, 0.05f);
+            glUniform3f(glGetUniformLocation(shader.Program, "pointLights[0].ambient"), 0.005f, 0.005f, 0.005f);
             glUniform3f(glGetUniformLocation(shader.Program, "pointLights[0].diffuse"), 1.0f, 1.0f, 1.0f);
             glUniform3f(glGetUniformLocation(shader.Program, "pointLights[0].specular"), 1.0f, 1.0f, 1.0f);;
             glUniform1f(glGetUniformLocation(shader.Program, "pointLights[0].constant"), 1.0f);
