@@ -16,8 +16,4 @@
 //     #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-// Define Some Constants
-//const int mWidth = 800;
-//const int mHeight = 600;
-
 #endif //~ GLENGINE Header

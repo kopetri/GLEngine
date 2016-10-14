@@ -180,37 +180,37 @@ class BasicShape
         }
 
 
-        string getType()
+        string getShapeType()
         {
             return shapeType;
         }
 
 
-        glm::vec3 getPosition()
+        glm::vec3 getShapePosition()
         {
             return shapePosition;
         }
 
 
-        GLfloat getAngle()
+        GLfloat getShapeAngle()
         {
             return shapeAngle;
         }
 
 
-        glm::vec3 getRotationAxis()
+        glm::vec3 getShapeRotationAxis()
         {
             return shapeRotationAxis;
         }
 
 
-        glm::vec3 getScale()
+        glm::vec3 getShapeScale()
         {
             return shapeScale;
         }
 
 
-        GLuint getVAO()
+        GLuint getShapeVAO()
         {
             return shapeVAO;
         }
@@ -222,31 +222,31 @@ class BasicShape
         }
 
 
-        string getSpecPath()
+        string getSpecularPath()
         {
             return shapeSpecularPath;
         }
 
 
-        void setPosition(glm::vec3 position)
+        void setShapePosition(glm::vec3 position)
         {
             this->shapePosition = position;
         }
 
 
-        void setAngle(GLfloat angle)
+        void setShapeAngle(GLfloat angle)
         {
             this->shapeAngle = angle;
         }
 
 
-        void setRotationAxis(glm::vec3 rotationAxis)
+        void setShapeRotationAxis(glm::vec3 rotationAxis)
         {
             this->shapeRotationAxis = rotationAxis;
         }
 
 
-        void setScale(glm::vec3 scale)
+        void setShapeScale(glm::vec3 scale)
         {
             this->shapeScale = scale;
         }
