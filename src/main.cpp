@@ -56,8 +56,8 @@ int main(int argc, char* argv[])
 
     glfwInit();
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
     glfwWindowHint(GLFW_SAMPLES, 16);
@@ -79,9 +79,9 @@ int main(int argc, char* argv[])
 
 
     // Model(s)
-    Model sphereModel("resources/models/sphere/sphere.obj");
+//    Model sphereModel("resources/models/sphere/sphere.obj");
+    Model shaderballModel("resources/models/shaderball/shaderball.obj");
 //    Model suitModel("resources/models/nanosuit/nanosuit.obj");
-//    Model monkeyModel("resources/models/monkey/monkey.obj");
 
 
     // Shader(s)
@@ -163,7 +163,8 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(glGetUniformLocation(cookTorranceShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glUniformMatrix4fv(glGetUniformLocation(cookTorranceShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniform3f(glGetUniformLocation(cookTorranceShader.Program, "viewPos"), camera.cameraPosition.x, camera.cameraPosition.y, camera.cameraPosition.z);
-        glUniform1f(glGetUniformLocation(cookTorranceShader.Program, "roughness"), 0.50f);
+        glUniform1f(glGetUniformLocation(cookTorranceShader.Program, "roughness"), 0.5f);
+        glUniform1f(glGetUniformLocation(cookTorranceShader.Program, "metallicity"), 0.0f);
 
 
         // Light source(s) rendering
@@ -176,13 +177,13 @@ int main(int argc, char* argv[])
         glm::mat4 model;
         model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
         GLfloat angle = glfwGetTime()/5.0f * 5.0f;
-        model = glm::rotate(model, angle, glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));
+        model = glm::rotate(model, 0.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.1f, 0.1f, 0.1f));
         glUniformMatrix4fv(glGetUniformLocation(cookTorranceShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
 
-        sphereModel.Draw(cookTorranceShader);
+//        sphereModel.Draw(cookTorranceShader);
+        shaderballModel.Draw(cookTorranceShader);
 //        suitModel.Draw(cookTorranceShader);
-//        monkeyModel.Draw(cookTorranceShader);
 
 
         // Shape(s) rendering

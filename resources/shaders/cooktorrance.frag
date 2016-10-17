@@ -1,4 +1,4 @@
-#version 330
+#version 400
 
 struct LightObject {
     vec3 position;
@@ -15,6 +15,7 @@ uniform mat4 view;
 uniform mat4 projection;
 uniform vec3 viewPos;
 uniform float roughness;
+uniform float metallicity;
 
 out vec4 colorOutput;
 
@@ -24,6 +25,19 @@ in vec3 normal;
 in vec3 baseColor;
 
 float PI  = 3.14159265359f;
+
+
+
+float Fd90(float NoL)
+{
+  return (2.0f * NoL * roughness) + 0.4f;
+}
+
+
+float KDisneyTerm(float NoL, float NoV)
+{
+  return (1.0f + Fd90(NoL) * pow(1.0f - NoL, 5.0f)) * (1.0f + Fd90(NoV) * pow(1.0f - NoV, 5.0f));
+}
 
 
 vec3 FresnelSchlick(float NdotV, vec3 F0)
@@ -86,52 +100,59 @@ void main()
 
     vec3 color = vec3(0.0f);
     vec3 albedo = vec3(1.0f);
+    vec3 diffuse = vec3(0.0f);
     vec3 specular = vec3(0.0f);
     vec3 envMap = texture(cubemap, R).rgb;
 
     for (int i = 0; i < lightCounter; i++)
     {
         vec3 L = normalize(lightArray[i].position - worldPos);
-        vec3 lightColor = colorLinear(lightArray[i].color.rgb);
-        float distance = length(lightArray[i].position - worldPos);
-        float attenuation = 1.0 / (distance * distance);
-
-
-        // Lambert diffuse computation
-        float lambertDiffuse = max(dot(N, L), 0.0f);
-        vec3 diffuse = lambertDiffuse * albedo * lightColor;
-
-
-        // Fresnel (Schlick) computation (F term)
-        // F0 = 0.04 --> dielectric UE4
-        // F0 = 0.658 --> Glass
-        vec3 F0 = vec3(0.658f);
-        vec3 F = FresnelSchlick(max(dot(N, V), 0.0), F0);
-        vec3 kS = F;
-        vec3 kD = vec3(1.0) - kS;
-
-
-        // Distribution (GGX) computation (D term)
         vec3 H = normalize(L + V);
-        float D = DistributionGGX(N, H, roughness);
+
+        vec3 lightColor = colorLinear(lightArray[i].color.rgb);
+        float distanceL = distance(lightArray[i].position, worldPos);
+        float attenuation = 1.0 / (distanceL * distanceL);
+
+        // BRDF terms
+        float NdotL = dot(N, L);
+        float NdotV = dot(N, V);
+
+        if(NdotL > 0)
+        {
+            // Lambertian computation
+            diffuse = (albedo/PI) - (albedo/PI) * metallicity;
 
 
-        // Geometry attenuation (GGX-Smith) computation (G term)
-        float NdotL = abs(dot(N, L));
-        float NdotV = abs(dot(N, V));
-        float G = GeometryAttenuationGGXSmith(NdotL, NdotV, roughness);
+            // Disney diffuse term
+            float kDisney = KDisneyTerm(NdotL, NdotV);
 
 
-        // Specular component computation
-        specular = (F * G * D) / (4 * NdotL * NdotV);
+            // Fresnel (Schlick) computation (F term)
+            // F0 = 0.04 --> dielectric UE4
+            // F0 = 0.658 --> Glass
+            vec3 F0 = vec3(0.658f);
+            vec3 F = FresnelSchlick(max(dot(N, V), 0.0), F0);
 
 
-        // Attenuation computation
-        diffuse *= attenuation;
-        specular *= attenuation;
+            // Distribution (GGX) computation (D term)
+            float D = DistributionGGX(N, H, roughness);
 
-//        color += albedo * lambertDiffuse * lightColor * kD + specular;
-        color += lambertDiffuse * envMap * NdotL * (kD + specular * (1.0f - kD));
+
+            // Geometry attenuation (GGX-Smith) computation (G term)
+            float G = GeometryAttenuationGGXSmith(NdotL, NdotV, roughness);
+
+
+            // Specular component computation
+            specular = (F * D * G) / (4 * NdotL * NdotV);
+
+
+            // Attenuation computation
+            diffuse *= attenuation;
+            specular *= attenuation;
+
+
+            color += lightColor * NdotL * (diffuse * kDisney * (1.0f - specular) + specular);
+        }
     }
 
     color = pow(color, vec3(1.0/2.2));
