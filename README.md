@@ -2,6 +2,11 @@ GLEngine
 ======
 GLEngine is a C++ OpenGL graphics engine which aimed to be a skill, knowledge and possibly graphical showcase. It will support many graphic features, from something as basic as textures and shaders to Deferred Rendering, PBR and such.
 
+Screenshot
+------
+
+![](http://i.imgur.com/BlgSNea.png)
+
 
 Features
 ------
@@ -63,10 +68,19 @@ Features
     * **TODO :** Proper material pipeline using a roughness/metalness workflow
     
 * Utility :
+    * GUI using ImGui
+    * Basic/naive GPU profiling
     * **TODO :** Logging
-    * **TODO :** CPU/GPU profiling
-    * **TODO :** GUI using AntTweakBar first, then Qt5 (which imply a whole project revamping)
+    * **TODO :** CPU profiling
+    * **TODO :** GUI using Qt5 (which imply a whole project revamping)
     * **TODO :** G-Buffer visualization & export for debugging purpose
+
+How to use
+------
+GLEngine was written using QtCreator as the IDE, CMake 3.0+ as the building tool, OpenGL 4.0+ as the Graphics API and a C++11 compiler in mind.
+Download the source, open the CMakeList.txt file with QtCreator, build everything, and everything should be ready to use.
+
+In GLEngine, hold the right mouse button to use the camera and its features. You can also toggle between solid and wireframe rendering using the F11/F12 buttons. 
 
 Dependencies (included)
 ------
@@ -80,3 +94,4 @@ Credits
 ------
 - Joey de Vries (LearnOpenGL)
 - Kevin Fung (Glitter)
+

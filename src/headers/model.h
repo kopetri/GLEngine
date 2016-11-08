@@ -31,7 +31,7 @@ class Model
         }
 
 
-        void Draw(Shader shader)
+        void Draw(Shader& shader)
         {
             for(GLuint i = 0; i < this->meshes.size(); i++)
                 this->meshes[i].Draw(shader);

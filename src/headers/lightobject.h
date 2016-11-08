@@ -36,7 +36,7 @@ class LightObject
         }
 
 
-        void renderToShader(Shader shader)
+        void renderToShader(Shader& shader)
         {
             shader.Use();
 

@@ -25,13 +25,16 @@ include_directories(src/headers/
                     api/glad/include/
                     api/glfw/include/
                     api/glm/
-                    api/stb/)
+                    api/stb/
+					api/imgui/)
 
-file(GLOB API_SOURCES api/glad/src/glad.c)
+file(GLOB API_SOURCES api/glad/src/glad.c
+					  api/imgui/*.cpp)
+
 file(GLOB PROJECT_HEADERS src/headers/*.hpp
                           src/headers/*.h)
 file(GLOB PROJECT_SOURCES src/*.cpp)
-file(GLOB PROJECT_SHADERS resources/shaders/*.comp
+file(GLOB PROJECT_SHADERS resources/shaders/*.glsl
                           resources/shaders/*.frag
                           resources/shaders/*.vert
                           resources/shaders/*.geom)

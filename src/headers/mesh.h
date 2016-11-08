@@ -31,7 +31,7 @@ class Mesh {
         vector<GLuint> indices;
         vector<Texture> textures;
 
-        Mesh(vector<Vertex> vertices, vector<GLuint> indices, vector<Texture> textures)
+        Mesh(vector<Vertex>& vertices, vector<GLuint>& indices, vector<Texture>& textures)
         {
             this->vertices = vertices;
             this->indices = indices;
@@ -41,7 +41,7 @@ class Mesh {
         }
 
 
-        void Draw(Shader shader)
+        void Draw(Shader& shader)
         {
             GLuint diffuseNr = 1;
             GLuint specularNr = 1;

@@ -126,7 +126,7 @@ class BasicShape
         }
 
 
-        void drawShape(Shader shader, glm::mat4 view, glm::mat4 projection, Camera camera)
+        void drawShape(Shader& shader, glm::mat4& view, glm::mat4& projection, Camera& camera)
         {
             shader.Use();
 

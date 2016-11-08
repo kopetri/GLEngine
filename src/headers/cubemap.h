@@ -64,7 +64,7 @@ class CubeMap
         GLuint cubemapTextureID, cubemapVAO, cubemapVBO;
 
 
-        CubeMap(vector<const char*> faces)
+        CubeMap(vector<const char*>& faces)
         {
             vector<std::string> cubemapFaces;
 
@@ -114,7 +114,7 @@ class CubeMap
        }
 
 
-        void renderToShader(Shader shaderCubemap, Shader shaderLighting, glm::mat4 projection, Camera camera)
+        void renderToShader(Shader& shaderCubemap, Shader& shaderLighting, glm::mat4& projection, Camera& camera)
         {
             glDepthFunc(GL_LEQUAL);
             shaderCubemap.Use();
