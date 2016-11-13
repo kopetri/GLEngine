@@ -5,7 +5,8 @@ GLEngine is a C++ OpenGL graphics engine which aimed to be a skill, knowledge an
 Screenshot
 ------
 
-![](http://i.imgur.com/BlgSNea.png)
+![](http://i.imgur.com/GNWNW98.png)
+![](http://i.imgur.com/0KuTFTz.png)
 
 
 Features
@@ -18,7 +19,7 @@ Features
 
 * Shaders :
     * Init/loading/binding from anywhere
-	* SSAO
+    * SSAO
     * **TODO :** Deferred Rendering compliant
     * **TODO :** PBR material pipeline compliant
     * **TODO :** Post-processing (FXAA, DoF, motion blur, bloom, SSR, SSS...)
@@ -57,7 +58,7 @@ Features
 
 * Environment Mapping :
     * 6-faced cubemap generation
-	* **TODO :** Deferred rendering compliant
+    * **TODO :** Deferred Rendering compliant
     * **TODO :** Equirectangular HDR maps
 
 * PBR Pipeline :
@@ -73,7 +74,7 @@ Features
 * Utility :
     * GUI using ImGui
     * Basic/naive GPU profiling
-	* G-Buffer visualization for debugging purpose
+    * G-Buffer visualization for debugging purpose
     * **TODO :** Logging
     * **TODO :** CPU profiling
     * **TODO :** GUI using Qt5 (which imply a whole project revamping)
@@ -82,10 +83,13 @@ Features
 How to use
 ------
 GLEngine was written using Linux, QtCreator as the IDE, CMake 3.0+ as the building tool, OpenGL 4.0+ as the Graphics API and a C++11 compiler in mind.
+
 Download the source, open the CMakeList.txt file with QtCreator, build the project, and everything should be ready to use.
 
-In GLEngine, hold the right mouse button to use the camera and its features. You can also toggle between solid and wireframe rendering using the F11/F12 buttons.
-To toggle between the different buffers, use the 1-5 buttons.
+* In GLEngine :
+    * Hold the right mouse button to use the camera and its features
+    * Toggle between solid and wireframe rendering using the F11/F12 buttons
+    * Toggle between the different buffers using the 1-5 buttons
 
 Dependencies (included)
 ------
