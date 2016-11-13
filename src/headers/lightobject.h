@@ -36,11 +36,13 @@ class LightObject
         }
 
 
-        void renderToShader(Shader& shader)
+        void renderToShader(Shader& shader, Camera& camera)
         {
             shader.Use();
 
-            glUniform3f(glGetUniformLocation(shader.Program, ("lightArray["+ to_string(this->lightID) +"].position").c_str()), this->lightPosition.x, this->lightPosition.y, this->lightPosition.z);
+            glm::vec3 lightPositionViewSpace = glm::vec3(camera.GetViewMatrix() * glm::vec4(this->lightPosition, 1.0));
+
+            glUniform3f(glGetUniformLocation(shader.Program, ("lightArray["+ to_string(this->lightID) +"].position").c_str()), lightPositionViewSpace.x, lightPositionViewSpace.y, lightPositionViewSpace.z);
             glUniform4f(glGetUniformLocation(shader.Program, ("lightArray["+ to_string(this->lightID) +"].color").c_str()), this->lightColor.r, this->lightColor.g, this->lightColor.b, this->lightColor.a);
         }
 
@@ -67,7 +69,6 @@ class LightObject
         {
             return lightID;
         }
-
 
 
         void setLightPosition(glm::vec3 position)

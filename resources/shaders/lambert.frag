@@ -1,4 +1,9 @@
-#version 400
+#version 400 core
+
+out vec4 colorOutput;
+in vec3 FragPosition;
+in vec2 TexCoords;
+in vec3 Normal;
 
 
 struct Material {
@@ -13,19 +18,10 @@ struct LightObject {
     vec4 color;
 };
 
-
 uniform int lightCounter = 3;
 uniform LightObject lightArray[3];
 uniform Material material;
-
-out vec4 colorOutput;
-
-in vec3 FragPosition;
-in vec2 TexCoords;
-in vec3 Normal;
-
 vec4 albedoColor = vec4(1.0f);
-
 
 vec4 colorLinear(vec4 colorVector);
 vec4 colorSRGB(vec4 colorVector);
@@ -52,14 +48,16 @@ void main()
 }
 
 
-vec4 colorLinear(vec4 colorVector) {
+vec4 colorLinear(vec4 colorVector)
+{
   vec3 linearColor = pow(colorVector.rgb, vec3(2.2f));
 
   return vec4(linearColor, colorVector.a);
 }
 
 
-vec4 colorSRGB(vec4 colorVector) {
+vec4 colorSRGB(vec4 colorVector)
+{
   vec3 srgbColor = pow(colorVector.rgb, vec3(1.0f / 2.2f));
 
   return vec4(srgbColor, colorVector.a);

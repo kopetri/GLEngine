@@ -18,7 +18,8 @@ Features
 
 * Shaders :
     * Init/loading/binding from anywhere
-    * **TODO :** Deferred rendering compliant
+	* SSAO
+    * **TODO :** Deferred Rendering compliant
     * **TODO :** PBR material pipeline compliant
     * **TODO :** Post-processing (FXAA, DoF, motion blur, bloom, SSR, SSS...)
 
@@ -49,12 +50,14 @@ Features
     * Lambert
     * Phong
     * Cook-Torrance BRDF
+    * Deferred Rendering
     * **TODO :** Blinn-Phong
-    * **TODO :** (Tiled) Deferred rendering
+    * **TODO :** Tiled Deferred Rendering
     * **TODO :** Shadow-mapping
 
 * Environment Mapping :
     * 6-faced cubemap generation
+	* **TODO :** Deferred rendering compliant
     * **TODO :** Equirectangular HDR maps
 
 * PBR Pipeline :
@@ -70,17 +73,19 @@ Features
 * Utility :
     * GUI using ImGui
     * Basic/naive GPU profiling
+	* G-Buffer visualization for debugging purpose
     * **TODO :** Logging
     * **TODO :** CPU profiling
     * **TODO :** GUI using Qt5 (which imply a whole project revamping)
-    * **TODO :** G-Buffer visualization & export for debugging purpose
+    * **TODO :** G-Buffer export as .png
 
 How to use
 ------
-GLEngine was written using QtCreator as the IDE, CMake 3.0+ as the building tool, OpenGL 4.0+ as the Graphics API and a C++11 compiler in mind.
-Download the source, open the CMakeList.txt file with QtCreator, build everything, and everything should be ready to use.
+GLEngine was written using Linux, QtCreator as the IDE, CMake 3.0+ as the building tool, OpenGL 4.0+ as the Graphics API and a C++11 compiler in mind.
+Download the source, open the CMakeList.txt file with QtCreator, build the project, and everything should be ready to use.
 
-In GLEngine, hold the right mouse button to use the camera and its features. You can also toggle between solid and wireframe rendering using the F11/F12 buttons. 
+In GLEngine, hold the right mouse button to use the camera and its features. You can also toggle between solid and wireframe rendering using the F11/F12 buttons.
+To toggle between the different buffers, use the 1-5 buttons.
 
 Dependencies (included)
 ------

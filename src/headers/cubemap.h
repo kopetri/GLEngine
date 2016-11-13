@@ -134,7 +134,6 @@ class CubeMap
             glBindVertexArray(0);
             glDepthFunc(GL_LESS);
         }
-
 };
 
 

@@ -126,24 +126,24 @@ class BasicShape
         }
 
 
-        void drawShape(Shader& shader, glm::mat4& view, glm::mat4& projection, Camera& camera)
+        void drawShape(Shader& lightingShader, glm::mat4& view, glm::mat4& projection, Camera& camera)
         {
-            shader.Use();
+            lightingShader.Use();
 
-            GLint modelLoc = glGetUniformLocation(shader.Program, "model");
-            GLint viewLoc = glGetUniformLocation(shader.Program, "view");
-            GLint projLoc = glGetUniformLocation(shader.Program, "projection");
+            GLint modelLoc = glGetUniformLocation(lightingShader.Program, "model");
+            GLint viewLoc = glGetUniformLocation(lightingShader.Program, "view");
+            GLint projLoc = glGetUniformLocation(lightingShader.Program, "projection");
             glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
             glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-            glUniform3f(glGetUniformLocation(shader.Program, "viewPos"), camera.cameraPosition.x, camera.cameraPosition.y, camera.cameraPosition.z);
+            glUniform3f(glGetUniformLocation(lightingShader.Program, "viewPos"), camera.cameraPosition.x, camera.cameraPosition.y, camera.cameraPosition.z);
 
-            glUniform3f(glGetUniformLocation(shader.Program, "pointLights[0].position"), pointLightPositions[0].x, pointLightPositions[0].y, pointLightPositions[0].z);
-            glUniform3f(glGetUniformLocation(shader.Program, "pointLights[0].ambient"), 0.005f, 0.005f, 0.005f);
-            glUniform3f(glGetUniformLocation(shader.Program, "pointLights[0].diffuse"), 1.0f, 1.0f, 1.0f);
-            glUniform3f(glGetUniformLocation(shader.Program, "pointLights[0].specular"), 1.0f, 1.0f, 1.0f);;
-            glUniform1f(glGetUniformLocation(shader.Program, "pointLights[0].constant"), 1.0f);
-            glUniform1f(glGetUniformLocation(shader.Program, "pointLights[0].linear"), 0.009);
-            glUniform1f(glGetUniformLocation(shader.Program, "pointLights[0].quadratic"), 0.0032);
+            glUniform3f(glGetUniformLocation(lightingShader.Program, "pointLights[0].position"), pointLightPositions[0].x, pointLightPositions[0].y, pointLightPositions[0].z);
+            glUniform3f(glGetUniformLocation(lightingShader.Program, "pointLights[0].ambient"), 0.005f, 0.005f, 0.005f);
+            glUniform3f(glGetUniformLocation(lightingShader.Program, "pointLights[0].diffuse"), 1.0f, 1.0f, 1.0f);
+            glUniform3f(glGetUniformLocation(lightingShader.Program, "pointLights[0].specular"), 1.0f, 1.0f, 1.0f);;
+            glUniform1f(glGetUniformLocation(lightingShader.Program, "pointLights[0].constant"), 1.0f);
+            glUniform1f(glGetUniformLocation(lightingShader.Program, "pointLights[0].linear"), 0.009);
+            glUniform1f(glGetUniformLocation(lightingShader.Program, "pointLights[0].quadratic"), 0.0032);
 
             glm::mat4 model;
             model = glm::translate(model, shapePosition);
@@ -154,12 +154,12 @@ class BasicShape
             if (shapeDiffusePath != "" && shapeSpecularPath != "")
             {
                 glActiveTexture(GL_TEXTURE0);
-                glUniform1i(glGetUniformLocation(shader.Program, "material.texture_diffuse1"), 0);
+                glUniform1i(glGetUniformLocation(lightingShader.Program, "material.texture_diffuse1"), 0);
                 glBindTexture(GL_TEXTURE_2D, shapeDiffuseID);
                 glActiveTexture(GL_TEXTURE1);
-                glUniform1i(glGetUniformLocation(shader.Program, "material.texture_specular1"), 1);
+                glUniform1i(glGetUniformLocation(lightingShader.Program, "material.texture_specular1"), 1);
                 glBindTexture(GL_TEXTURE_2D, shapeSpecularID);
-                glUniform1f(glGetUniformLocation(shader.Program, "material.shininess"), 15.0f);
+                glUniform1f(glGetUniformLocation(lightingShader.Program, "material.shininess"), 15.0f);
                 glActiveTexture(GL_TEXTURE0);
             }
 
