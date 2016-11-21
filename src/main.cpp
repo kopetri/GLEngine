@@ -5,7 +5,7 @@
 #include "shader.h"
 #include "camera.h"
 #include "model.h"
-#include "basicshape.h"
+#include "shapeobject.h"
 #include "textureobject.h"
 #include "lightobject.h"
 #include "cubemap.h"
@@ -64,7 +64,7 @@ GLuint gBuffer, zBuffer, gPosition, gNormal, gColor;
 GLuint ssaoFBO, ssaoBlurFBO, ssaoBuffer, ssaoBlurBuffer, noiseTexture;
 
 GLint gBufferView = 1;
-GLint ssaoKernelSize = 64;
+GLint ssaoKernelSize = 32;
 GLint ssaoNoiseSize = 4;
 GLint ssaoBlurSize = 4;
 
@@ -147,25 +147,21 @@ int main(int argc, char* argv[])
     Shader cubemapShader("resources/shaders/cubemap.vert", "resources/shaders/cubemap.frag");
     Shader ssaoShader("resources/shaders/ssao.vert", "resources/shaders/ssao.frag");
     Shader ssaoBlurShader("resources/shaders/ssao.vert", "resources/shaders/ssaoBlur.frag");
+    Shader velocityShader("resources/shaders/velocity.vert", "resources/shaders/velocity.frag");
 
 
     //---------------
     // Basic shape(s)
     //---------------
-    BasicShape lamp1("cube", glm::vec3(1.5f, 0.75f, 1.0f));
-    lamp1.setShapeScale(glm::vec3(0.15f, 0.15f, 0.15f));
-    BasicShape lamp2("cube", glm::vec3(-1.5f, 1.0f, 1.0f));
-    lamp2.setShapeScale(glm::vec3(0.15f, 0.15f, 0.15f));
-    BasicShape lamp3("cube", glm::vec3(0.0f, 0.75f, -1.2f));
-    lamp3.setShapeScale(glm::vec3(0.15f, 0.15f, 0.15f));
+
 
 
     //----------------
     // Light source(s)
     //----------------
-    LightObject light1("point", lamp1.getShapePosition(), glm::vec4(lightColor1, 1.0f));
-    LightObject light2("point", lamp2.getShapePosition(), glm::vec4(lightColor2, 1.0f));
-    LightObject light3("point", lamp3.getShapePosition(), glm::vec4(lightColor3, 1.0f));
+    LightObject light1("point", glm::vec3(1.5f, 0.75f, 1.0f), glm::vec4(lightColor1, 1.0f), true);
+    LightObject light2("point", glm::vec3(-1.5f, 1.0f, 1.0f), glm::vec4(lightColor2, 1.0f), true);
+    LightObject light3("point", glm::vec3(0.0f, 0.75f, -1.2f), glm::vec4(lightColor3, 1.0f), true);
 
 
     //-------
@@ -222,6 +218,14 @@ int main(int argc, char* argv[])
     ssaoSetup();
 
 
+    //------------
+    // Post-processing setup
+    //------------
+    glm::mat4 prevProjection;
+    glm::mat4 prevView;
+    glm::mat4 prevModel;
+
+
     //------------------------------
     // Queries setting for profiling
     //------------------------------
@@ -269,20 +273,14 @@ int main(int argc, char* argv[])
         glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-
-        //---------------
         // Camera setting
-        //---------------
         glm::mat4 projection = glm::perspective(camera.cameraFOV, (float)WIDTH/(float)HEIGHT, 0.1f, 100.0f);
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 model;
 
         gBufferShader.Use();
 
-
-        //-------------------
         // Model(s) rendering
-        //-------------------
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
         model = glm::mat4();
@@ -291,6 +289,8 @@ int main(int argc, char* argv[])
         model = glm::rotate(model, angle, glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::scale(model, glm::vec3(0.1f, 0.1f, 0.1f));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "modelViewProj"), 1, GL_FALSE, glm::value_ptr(model * view * projection));
+        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "prevModelViewProj"), 1, GL_FALSE, glm::value_ptr(prevModel * prevView * prevProjection));
         glUniform3f(glGetUniformLocation(gBufferShader.Program, "albedoColor"), albedoColor.x, albedoColor.y, albedoColor.z);
 
         shaderballModel.Draw(gBufferShader);
@@ -317,6 +317,7 @@ int main(int argc, char* argv[])
 
         for (GLuint i = 0; i < ssaoKernelSize; ++i)
             glUniform3fv(glGetUniformLocation(ssaoShader.Program, ("samples[" + std::to_string(i) + "]").c_str()), 1, &ssaoKernel[i][0]);
+
         glUniformMatrix4fv(glGetUniformLocation(ssaoShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glUniform1i(glGetUniformLocation(ssaoShader.Program, "ssaoKernelSize"), ssaoKernelSize);
         glUniform1i(glGetUniformLocation(ssaoShader.Program, "ssaoNoiseSize"), ssaoNoiseSize);
@@ -360,9 +361,11 @@ int main(int argc, char* argv[])
         light1.setLightColor(glm::vec4(lightColor1, 1.0f));
         light2.setLightColor(glm::vec4(lightColor2, 1.0f));
         light3.setLightColor(glm::vec4(lightColor3, 1.0f));
-        light1.renderToShader(brdfShader, camera);
-        light2.renderToShader(brdfShader, camera);
-        light3.renderToShader(brdfShader, camera);
+
+        for(int i = 0; i < LightObject::lightList.size(); i++)
+        {
+            LightObject::lightList[i].renderToShader(brdfShader, camera);
+        }
 
         glUniformMatrix4fv(glGetUniformLocation(brdfShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(brdfShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
@@ -381,6 +384,14 @@ int main(int argc, char* argv[])
         gBufferQuad();
 
 
+        //-------------------------------
+        // Post-processing Pass rendering
+        //-------------------------------
+
+
+
+
+
         //-----------------------
         // Forward Pass rendering
         //-----------------------
@@ -396,9 +407,14 @@ int main(int argc, char* argv[])
         lampShader.Use();
         glUniformMatrix4fv(glGetUniformLocation(lampShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glUniformMatrix4fv(glGetUniformLocation(lampShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        lamp1.drawShape(lampShader, view, projection, camera);
-        lamp2.drawShape(lampShader, view, projection, camera);
-        lamp3.drawShape(lampShader, view, projection, camera);
+
+        for(int i = 0; i < LightObject::lightList.size(); i++)
+        {
+            glUniform4f(glGetUniformLocation(lampShader.Program, "lightColor"), LightObject::lightList[i].getLightColor().r, LightObject::lightList[i].getLightColor().g, LightObject::lightList[i].getLightColor().b, LightObject::lightList[i].getLightColor().a);
+
+            if(LightObject::lightList[i].isMesh())
+                LightObject::lightList[i].drawLightMesh(lampShader, view, projection, camera);
+        }
         glQueryCounter(queryIDForward[1], GL_TIMESTAMP);
 
         // Cubemap rendering
@@ -515,7 +531,7 @@ void imGuiSetup()
         {
             ImGui::SliderFloat("Visibility", &ssaoVisibility, 0.0f, 1.0f);
             ImGui::SliderFloat("Power", &ssaoPower, 0.0f, 4.0f);
-            ImGui::SliderInt("Kernel Size", &ssaoKernelSize, 0, 64);
+            ImGui::SliderInt("Kernel Size", &ssaoKernelSize, 0, 128);
             ImGui::SliderInt("Noise Size", &ssaoNoiseSize, 0, 16);
             ImGui::SliderFloat("Radius", &ssaoRadius, 0.0f, 3.0f);
             ImGui::SliderInt("Blur Size", &ssaoBlurSize, 0, 16);
@@ -632,10 +648,10 @@ void ssaoSetup()
     std::uniform_real_distribution<GLfloat> randomFloats(0.0, 1.0);
     std::default_random_engine generator;
 
-    for (GLuint i = 0; i < 64; ++i)
+    for (GLuint i = 0; i < 128; ++i)
     {
         glm::vec3 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator));
-        GLfloat scale = GLfloat(i) / 64.0;
+        GLfloat scale = GLfloat(i) / 128.0;
 
         sample = glm::normalize(sample);
         sample *= randomFloats(generator);

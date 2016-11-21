@@ -44,11 +44,11 @@ void main()
     // Retrieve G-Buffer informations
     vec3 worldPos = texture(gPosition, TexCoords).rgb;
     vec3 normal = texture(gNormal, TexCoords).rgb;
-    vec3 albedo = texture(gColor, TexCoords).rgb;
+    vec3 albedo = colorLinear(texture(gColor, TexCoords).rgb);
     float ao = texture(ssao, TexCoords).r;
     float depth = texture(gPosition, TexCoords).a;
 
-    vec3 V = normalize(viewPos - worldPos);
+    vec3 V = normalize(- worldPos);
     vec3 N = normalize(normal);
     vec3 R = normalize(-reflect(V, N));
 
@@ -105,17 +105,22 @@ void main()
     }
 
     // Switching between the different buffers
+    // Final buffer
     if(gBufferView == 1)
     {
-        color = pow(color, vec3(1.0/2.2));
+        color = colorSRGB(color);
         colorOutput = vec4(color, 1.0);
     }
+    // Position buffer
     else if (gBufferView == 2)
         colorOutput = vec4(worldPos, 1.0f);
+    // Normals buffer
     else if (gBufferView == 3)
         colorOutput = vec4(normal, 1.0f);
+    // Depth buffer
     else if (gBufferView == 4)
         colorOutput = vec4(vec3(depth/50.0f), 1.0f);
+    // AO buffer
     else if (gBufferView == 5)
         colorOutput = vec4(vec3(ao), 1.0f);
 }
@@ -175,7 +180,7 @@ vec3 colorLinear(vec3 colorVector)
 {
   vec3 linearColor = pow(colorVector.rgb, vec3(2.2f));
 
-  return vec3(linearColor);
+  return linearColor;
 }
 
 
@@ -183,5 +188,5 @@ vec3 colorSRGB(vec3 colorVector)
 {
   vec3 srgbColor = pow(colorVector.rgb, vec3(1.0f / 2.2f));
 
-  return vec3(srgbColor);
+  return srgbColor;
 }

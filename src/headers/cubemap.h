@@ -99,7 +99,7 @@ class CubeMap
                 if (image == NULL)
                     std::cerr << "FAILED LOADING CUBEMAP : " << cubemapFaces[i] << std::endl;
 
-                glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_SRGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+                glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
 
                 stbi_image_free(image);
             }
