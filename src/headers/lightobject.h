@@ -12,98 +12,58 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-
-
-GLfloat lightMeshVertices[] =
-{
-    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
-     0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  0.0f,
-     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,
-     0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f,  1.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  1.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
-
-    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  0.0f,
-     0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  0.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f,  1.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  1.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f,  0.0f,
-
-    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
-    -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  1.0f,
-    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
-    -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
-    -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f,  0.0f,
-    -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
-
-     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
-     0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  1.0f,
-     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
-     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  1.0f,
-     0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f,  0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f,  0.0f,
-
-    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,
-     0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  1.0f,
-     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,
-     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f,  0.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  0.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f,  1.0f,
-
-    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
-     0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  1.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,
-     0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f,  0.0f,
-    -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  0.0f,
-    -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f
-};
+#include "shapeobject.h"
 
 
 
 class LightObject
 {
     public:
-        static GLuint lightCount;
-        static std::vector<LightObject> lightList;
+        static GLuint lightPointCount, lightDirectionalCount;
+        static std::vector<LightObject> lightPointList;
+        static std::vector<LightObject> lightDirectionalList;
 
-        GLuint lightID, lightVAO, lightVBO;
+        GLuint lightPointID, lightDirectionalID, lightVAO, lightVBO;
 
-        string lightType;
+        std::string lightType;
 
-        bool lightToMesh;
+        bool lightToMesh = false;
 
         glm::vec3 lightPosition;
+        glm::vec3 lightDirection;
         glm::vec4 lightColor;
 
+        ShapeObject lightMesh = ShapeObject("cube", glm::vec3(0.0f, 0.0f, 0.0f));
 
-        LightObject(string type, glm::vec3 position, glm::vec4 color, bool isMesh)
+
+        LightObject(glm::vec3 position, glm::vec4 color, bool isMesh)
         {
-            this->lightType = type;
+            this->lightType = "point";
             this->lightPosition = position;
             this->lightColor = color;
-            this->lightID = lightCount;
+            this->lightPointID = lightPointCount;
             this->lightToMesh = isMesh;
 
             if(this->lightToMesh)
             {
-                glGenVertexArrays(1, &lightVAO);
-                glGenBuffers(1, &lightVBO);
-                glBindBuffer(GL_ARRAY_BUFFER, lightVBO);
-
-                glBufferData(GL_ARRAY_BUFFER, sizeof(lightMeshVertices), lightMeshVertices, GL_STATIC_DRAW);
-                glBindVertexArray(lightVAO);
-                glEnableVertexAttribArray(0);
-                glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0);
-                glEnableVertexAttribArray(1);
-                glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
-                glEnableVertexAttribArray(2);
-                glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(6 * sizeof(GLfloat)));
-                glBindVertexArray(0);
+                this->lightMesh.setShapePosition(this->lightPosition);
+                this->lightMesh.setShapeScale(glm::vec3(0.15f, 0.15f, 0.15f));
             }
 
-            lightCount = ++lightCount;
-            lightList.push_back(*this);
+            lightPointCount = ++lightPointCount;
+            lightPointList.push_back(*this);
+        }
+
+
+        LightObject(glm::vec3 direction, glm::vec4 color)
+        {
+            this->lightType = "directional";
+            this->lightDirection = direction;
+            this->lightColor = color;
+            this->lightDirectionalID = lightDirectionalCount;
+
+            lightDirectionalCount = ++lightDirectionalCount;
+            lightDirectionalList.push_back(*this);
         }
 
 
@@ -111,36 +71,25 @@ class LightObject
         {
             shader.Use();
 
-            glm::vec3 lightPositionViewSpace = glm::vec3(camera.GetViewMatrix() * glm::vec4(this->lightPosition, 1.0));
+            if(this->lightType == "point")
+            {
+                glm::vec3 lightPositionViewSpace = glm::vec3(camera.GetViewMatrix() * glm::vec4(this->lightPosition, 1.0f));
 
-            glUniform3f(glGetUniformLocation(shader.Program, ("lightArray["+ to_string(this->lightID) +"].position").c_str()), lightPositionViewSpace.x, lightPositionViewSpace.y, lightPositionViewSpace.z);
-            glUniform4f(glGetUniformLocation(shader.Program, ("lightArray["+ to_string(this->lightID) +"].color").c_str()), this->lightColor.r, this->lightColor.g, this->lightColor.b, this->lightColor.a);
+                glUniform3f(glGetUniformLocation(shader.Program, ("lightPointArray["+ to_string(this->lightPointID) +"].position").c_str()), lightPositionViewSpace.x, lightPositionViewSpace.y, lightPositionViewSpace.z);
+                glUniform4f(glGetUniformLocation(shader.Program, ("lightPointArray["+ to_string(this->lightPointID) +"].color").c_str()), this->lightColor.r, this->lightColor.g, this->lightColor.b, this->lightColor.a);
+            }
+
+            else if(this->lightType == "directional")
+            {
+                glm::vec3 lightDirectionViewSpace = glm::vec3(camera.GetViewMatrix() * glm::vec4(this->lightDirection, 0.0f));
+
+                glUniform3f(glGetUniformLocation(shader.Program, ("lightDirectionalArray["+ to_string(this->lightDirectionalID) +"].direction").c_str()), lightDirectionViewSpace.x, lightDirectionViewSpace.y, lightDirectionViewSpace.z);
+                glUniform4f(glGetUniformLocation(shader.Program, ("lightDirectionalArray["+ to_string(this->lightDirectionalID) +"].color").c_str()), this->lightColor.r, this->lightColor.g, this->lightColor.b, this->lightColor.a);
+            }
         }
 
 
-        void drawLightMesh(Shader& shader, glm::mat4& view, glm::mat4& projection, Camera& camera)
-        {
-            shader.Use();
-
-            GLint modelLoc = glGetUniformLocation(shader.Program, "model");
-            GLint viewLoc = glGetUniformLocation(shader.Program, "view");
-            GLint projLoc = glGetUniformLocation(shader.Program, "projection");
-            glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-            glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-            glUniform3f(glGetUniformLocation(shader.Program, "viewPos"), camera.cameraPosition.x, camera.cameraPosition.y, camera.cameraPosition.z);
-
-            glm::mat4 model;
-            model = glm::translate(model, this->lightPosition);
-            model = glm::scale(model, glm::vec3(0.15f, 0.15f, 0.15f));
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-
-            glBindVertexArray(lightVAO);
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-            glBindVertexArray(0);
-        }
-
-
-        string getLightType()
+        std::string getLightType()
         {
             return lightType;
         }
@@ -152,6 +101,12 @@ class LightObject
         }
 
 
+        glm::vec3 getLightDirection()
+        {
+            return lightDirection;
+        }
+
+
         glm::vec4 getLightColor()
         {
             return lightColor;
@@ -160,7 +115,10 @@ class LightObject
 
         GLuint getLightID()
         {
-            return lightID;
+            if(this->lightType == "point")
+                return lightPointID;
+            if(this->lightType == "directional")
+                return lightDirectionalID;
         }
 
         bool isMesh()
@@ -171,23 +129,32 @@ class LightObject
 
         void setLightPosition(glm::vec3 position)
         {
-            this->lightPosition = position;
+            lightPointList[this->lightPointID].lightPosition = position;
+            lightPointList[this->lightPointID].lightMesh.setShapePosition(position);
+        }
+
+
+        void setLightDirection(glm::vec3 direction)
+        {
+            lightDirectionalList[this->lightDirectionalID].lightDirection = direction;
         }
 
 
         void setLightColor(glm::vec4 color)
         {
-            if (color != this->lightColor)
-            {
-                this->lightColor = color;
-                lightList[this->lightID].lightColor = color;
-            }
+            if(this->lightType == "point")
+                lightPointList[this->lightPointID].lightColor = color;
+            if(this->lightType == "directional")
+                lightDirectionalList[this->lightDirectionalID].lightColor = color;
         }
 };
 
 
-GLuint LightObject::lightCount = 0;
-std::vector<LightObject> LightObject::lightList;
+GLuint LightObject::lightPointCount = 0;
+GLuint LightObject::lightDirectionalCount = 0;
+
+std::vector<LightObject> LightObject::lightPointList;
+std::vector<LightObject> LightObject::lightDirectionalList;
 
 
 #endif

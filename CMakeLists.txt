@@ -37,7 +37,12 @@ file(GLOB PROJECT_SOURCES src/*.cpp)
 file(GLOB PROJECT_SHADERS resources/shaders/*.glsl
                           resources/shaders/*.frag
                           resources/shaders/*.vert
-                          resources/shaders/*.geom)
+                          resources/shaders/lighting/*.glsl
+                          resources/shaders/lighting/*.frag
+                          resources/shaders/lighting/*.vert
+                          resources/shaders/postprocess/*.glsl
+                          resources/shaders/postprocess/*.frag
+                          resources/shaders/postprocess/*.vert)
 file(GLOB PROJECT_CONFIGS CMakeLists.txt
                           Readme.md
                          .gitattributes

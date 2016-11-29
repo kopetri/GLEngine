@@ -5,7 +5,7 @@ out vec4 colorOutput;
 
 
 struct LightObject {
-    vec3 position;
+    vec3 direction;
     vec4 color;
 };
 
@@ -18,8 +18,8 @@ uniform sampler2D gColor;
 uniform sampler2D ssao;
 
 // Light source(s) informations
-uniform int lightCounter = 3;
-uniform LightObject lightArray[3];
+uniform int lightDirectionalCounter = 3;
+uniform LightObject lightDirectionalArray[3];
 
 uniform int gBufferView;
 uniform float materialRoughness;
@@ -37,6 +37,10 @@ float DistributionGGX(vec3 N, vec3 H, float roughness);
 float GeometryAttenuationGGXSmith(float NdotL, float NdotV, float roughness);
 vec3 colorLinear(vec3 colorVector);
 vec3 colorSRGB(vec3 colorVector);
+float saturate(float f);
+vec2 saturate(vec2 vec);
+vec3 saturate(vec3 vec);
+
 
 
 void main()
@@ -50,21 +54,19 @@ void main()
 
     vec3 V = normalize(- worldPos);
     vec3 N = normalize(normal);
-    vec3 R = normalize(-reflect(V, N));
+    vec3 R = normalize(- reflect(V, N));
 
     vec3 color = vec3(0.0f);
     vec3 diffuse = vec3(0.0f);
     vec3 specular = vec3(0.0f);
 //    vec3 envMap = texture(cubemap, R).rgb;
 
-    for (int i = 0; i < lightCounter; i++)
+    for (int i = 0; i < lightDirectionalCounter; i++)
     {
-        vec3 L = normalize(lightArray[i].position - worldPos);
+        vec3 L = normalize(- lightDirectionalArray[i].direction);
         vec3 H = normalize(L + V);
 
-        vec3 lightColor = colorLinear(lightArray[i].color.rgb);
-        float distanceL = distance(lightArray[i].position, worldPos);
-        float attenuation = 1.0 / (distanceL * distanceL);
+        vec3 lightColor = colorLinear(lightDirectionalArray[i].color.rgb);
 
         // BRDF terms
         float NdotL = dot(N, L);
@@ -81,7 +83,7 @@ void main()
             // Fresnel (Schlick) computation (F term)
             // F0 = 0.04 --> dielectric UE4
             // F0 = 0.658 --> Glass
-            vec3 F = FresnelSchlick(max(dot(N, V), 0.0), materialF0);
+            vec3 F = FresnelSchlick(max(NdotV, 0.0), materialF0);
 
             // Distribution (GGX) computation (D term)
             float D = DistributionGGX(N, H, materialRoughness);
@@ -92,9 +94,9 @@ void main()
             // Specular component computation
             specular = (F * D * G) / (4 * NdotL * NdotV);
 
-            // Attenuation computation
-            diffuse *= attenuation;
-            specular *= attenuation;
+            // Clamp color components between 0.0f and 1.0f
+            diffuse = saturate(diffuse);
+            specular = saturate(specular);
 
             // SSAO
             vec3 ssao = vec3(ssaoVisibility * ao);
@@ -189,4 +191,22 @@ vec3 colorSRGB(vec3 colorVector)
   vec3 srgbColor = pow(colorVector.rgb, vec3(1.0f / 2.2f));
 
   return srgbColor;
+}
+
+
+float saturate(float f)
+{
+    return clamp(f, 0.0, 1.0);
+}
+
+
+vec2 saturate(vec2 vec)
+{
+    return clamp(vec, 0.0, 1.0);
+}
+
+
+vec3 saturate(vec3 vec)
+{
+    return clamp(vec, 0.0, 1.0);
 }
