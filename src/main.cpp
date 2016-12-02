@@ -60,7 +60,7 @@ const GLuint WIDTH = 1280;
 const GLuint HEIGHT = 720;
 
 GLuint gBufferQuadVAO, gBufferQuadVBO;
-GLuint gBuffer, zBuffer, gPosition, gNormal, gColor;
+GLuint gBuffer, zBuffer, gPosition, gNormal, gAlbedo, gRoughness, gMetalness;
 GLuint ssaoFBO, ssaoBlurFBO, ssaoBuffer, ssaoBlurBuffer, noiseTexture;
 
 GLint gBufferView = 1;
@@ -84,19 +84,20 @@ GLfloat ssaoRadius = 1.0f;
 GLfloat ssaoVisibility = 1;
 GLfloat ssaoPower = 1.0f;
 
+bool screenMode = false;
 bool cameraMode;
 bool firstMouse = true;
 bool guiIsOpen = true;
 bool keys[1024];
 
 glm::vec3 albedoColor = glm::vec3(1.0f);
-glm::vec3 materialF0 = glm::vec3(0.658f);
+glm::vec3 materialF0 = glm::vec3(0.56f, 0.57f, 0.58f);
 glm::vec3 lightPointPosition1 = glm::vec3(1.5f, 0.75f, 1.0f);
 glm::vec3 lightPointPosition2 = glm::vec3(-1.5f, 1.0f, 1.0f);
 glm::vec3 lightPointPosition3 = glm::vec3(0.0f, 0.75f, -1.2f);
-glm::vec3 lightPointColor1 = glm::vec3(1.0f, 0.0f, 0.0f);
-glm::vec3 lightPointColor2 = glm::vec3(0.0f, 1.0f, 0.0f);
-glm::vec3 lightPointColor3 = glm::vec3(0.0f, 0.0f, 1.0f);
+glm::vec3 lightPointColor1 = glm::vec3(1.0f);
+glm::vec3 lightPointColor2 = glm::vec3(1.0f);
+glm::vec3 lightPointColor3 = glm::vec3(1.0f);
 glm::vec3 lightDirectionalColor1 = glm::vec3(1.0f);
 
 vector<const char*> cubeFaces;
@@ -115,6 +116,7 @@ int main(int argc, char* argv[])
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
+//    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", glfwGetPrimaryMonitor(), nullptr);
     GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", nullptr, nullptr);
     glfwMakeContextCurrent(window);
 
@@ -139,6 +141,29 @@ int main(int argc, char* argv[])
     // Model(s)
     //---------
     Model shaderballModel("resources/models/shaderball/shaderball.obj");
+
+
+    //---------
+    // Textures(s)
+    //---------
+    TextureObject ironAlbedo("resources/textures/pbr/rustediron/rustediron_albedo.png");
+    TextureObject ironNormal("resources/textures/pbr/rustediron/rustediron_normal.png");
+    TextureObject ironRoughness("resources/textures/pbr/rustediron/rustediron_roughness.png");
+    TextureObject ironMetallic("resources/textures/pbr/rustediron/rustediron_metallic.png");
+
+//    TextureObject aluminiumAlbedo("resources/textures/pbr/aluminium/aluminium_albedo.png");
+//    TextureObject aluminiumNormal("resources/textures/pbr/aluminium/aluminium_normal.png");
+//    TextureObject aluminiumRoughness("resources/textures/pbr/aluminium/aluminium_roughness.png");
+//    TextureObject aluminiumMetallic("resources/textures/pbr/aluminium/aluminium_metallic.png");
+
+//    TextureObject goldAlbedo("resources/textures/pbr/gold/gold_albedo2.png");
+//    TextureObject goldNormal("resources/textures/pbr/gold/gold_normal.png");
+//    TextureObject goldRoughness("resources/textures/pbr/gold/gold_roughness.png");
+//    TextureObject goldMetallic("resources/textures/pbr/gold/gold_metallic.png");
+
+//    TextureObject woodfloorAlbedo("resources/textures/pbr/woodfloor/woodfloor_albedo.png");
+//    TextureObject woodfloorNormal("resources/textures/pbr/woodfloor/woodfloor_normal.png");
+//    TextureObject woodfloorRoughness("resources/textures/pbr/woodfloor/woodfloor_roughness.png");
 
 
     //----------
@@ -169,7 +194,7 @@ int main(int argc, char* argv[])
     LightObject lightPoint2(lightPointPosition2, glm::vec4(lightPointColor2, 1.0f), true);
     LightObject lightPoint3(lightPointPosition3, glm::vec4(lightPointColor3, 1.0f), true);
 
-    LightObject lightDirectional1(glm::vec3(-0.2f, -1.0f, -0.3f), glm::vec4(lightPointColor1, 1.0f));
+    LightObject lightDirectional1(glm::vec3(-0.2f, -1.0f, -0.3f), glm::vec4(lightDirectionalColor1, 1.0f));
 
 
     //-------
@@ -205,14 +230,18 @@ int main(int argc, char* argv[])
     pointBRDFShader.Use();
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gPosition"), 0);
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gNormal"), 1);
-    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gColor"), 2);
-    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "ssao"), 3);
+    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gAlbedo"), 2);
+    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gRoughness"), 3);
+    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gMetalness"), 4);
+    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "ssao"), 5);
 
     directionalBRDFShader.Use();
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gPosition"), 0);
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gNormal"), 1);
-    glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gColor"), 2);
-    glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "ssao"), 3);
+    glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gAlbedo"), 2);
+    glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gRoughness"), 3);
+    glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gMetalness"), 4);
+    glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "ssao"), 5);
 
     ssaoShader.Use();
     glUniform1i(glGetUniformLocation(ssaoShader.Program, "gPosition"), 0);
@@ -292,20 +321,31 @@ int main(int argc, char* argv[])
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 model;
 
+        // Model(s) rendering
         gBufferShader.Use();
 
-        // Model(s) rendering
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
         model = glm::mat4();
         model = glm::translate(model, glm::vec3(0.0f));
         GLfloat angle = glfwGetTime()/5.0f * 5.0f;
-        model = glm::rotate(model, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::rotate(model, 0.0f, glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::scale(model, glm::vec3(0.1f, 0.1f, 0.1f));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "modelViewProj"), 1, GL_FALSE, glm::value_ptr(model * view * projection));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "prevModelViewProj"), 1, GL_FALSE, glm::value_ptr(prevModel * prevView * prevProjection));
         glUniform3f(glGetUniformLocation(gBufferShader.Program, "albedoColor"), albedoColor.r, albedoColor.g, albedoColor.b);
+
+        // Material
+        glActiveTexture(GL_TEXTURE0);
+        ironAlbedo.Bind();
+        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texAlbedo"), 0);
+        glActiveTexture(GL_TEXTURE1);
+        ironRoughness.Bind();
+        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texRoughness"), 1);
+        glActiveTexture(GL_TEXTURE2);
+        ironMetallic.Bind();
+        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texMetalness"), 2);
 
         shaderballModel.Draw(gBufferShader);
 
@@ -322,6 +362,7 @@ int main(int argc, char* argv[])
 
         // SSAO texture
         ssaoShader.Use();
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gPosition);
         glActiveTexture(GL_TEXTURE1);
@@ -339,7 +380,9 @@ int main(int argc, char* argv[])
         glUniform1f(glGetUniformLocation(ssaoShader.Program, "ssaoPower"), ssaoPower);
         glUniform1i(glGetUniformLocation(ssaoShader.Program, "viewportWidth"), WIDTH);
         glUniform1i(glGetUniformLocation(ssaoShader.Program, "viewportHeight"), HEIGHT);
+
         gBufferQuad();
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // SSAO Blur texture
@@ -347,10 +390,13 @@ int main(int argc, char* argv[])
         glClear(GL_COLOR_BUFFER_BIT);
 
         ssaoBlurShader.Use();
+
         glUniform1i(glGetUniformLocation(ssaoBlurShader.Program, "ssaoBlurSize"), ssaoBlurSize);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, ssaoBuffer);
+
         gBufferQuad();
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glQueryCounter(queryIDSSAO[1], GL_TIMESTAMP);
 
@@ -368,8 +414,12 @@ int main(int argc, char* argv[])
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, gNormal);
         glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, gColor);
+        glBindTexture(GL_TEXTURE_2D, gAlbedo);
         glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, gRoughness);
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, gMetalness);
+        glActiveTexture(GL_TEXTURE5);
         glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
 
         // Point light(s) rendering
@@ -400,8 +450,12 @@ int main(int argc, char* argv[])
 //        glActiveTexture(GL_TEXTURE1);
 //        glBindTexture(GL_TEXTURE_2D, gNormal);
 //        glActiveTexture(GL_TEXTURE2);
-//        glBindTexture(GL_TEXTURE_2D, gColor);
+//        glBindTexture(GL_TEXTURE_2D, gAlbedo);
 //        glActiveTexture(GL_TEXTURE3);
+//        glBindTexture(GL_TEXTURE_2D, gRoughness);
+//        glActiveTexture(GL_TEXTURE4);
+//        glBindTexture(GL_TEXTURE_2D, gMetalness);
+//        glActiveTexture(GL_TEXTURE5);
 //        glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
 
 //        lightDirectional1.setLightColor(glm::vec4(lightDirectionalColor1, 1.0f));
@@ -410,11 +464,6 @@ int main(int argc, char* argv[])
 //        {
 //            LightObject::lightDirectionalList[i].renderToShader(directionalBRDFShader, camera);
 //        }
-
-
-//        glUniformMatrix4fv(glGetUniformLocation(directionalBRDFShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-//        glUniformMatrix4fv(glGetUniformLocation(directionalBRDFShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-
 
 //        glUniform3f(glGetUniformLocation(directionalBRDFShader.Program, "viewPos"), camera.cameraPosition.x, camera.cameraPosition.y, camera.cameraPosition.z);
 //        glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "materialRoughness"), materialRoughness);
@@ -640,7 +689,7 @@ void gBufferSetup()
     // Position
     glGenTextures(1, &gPosition);
     glBindTexture(GL_TEXTURE_2D, gPosition);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, WIDTH, HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -656,16 +705,33 @@ void gBufferSetup()
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);
 
     // Albedo
-    glGenTextures(1, &gColor);
-    glBindTexture(GL_TEXTURE_2D, gColor);
+    glGenTextures(1, &gAlbedo);
+    glBindTexture(GL_TEXTURE_2D, gAlbedo);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gColor, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedo, 0);
+
+    // Roughness
+    glGenTextures(1, &gRoughness);
+    glBindTexture(GL_TEXTURE_2D, gRoughness);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, gRoughness, 0);
+
+    // Metalness
+    glGenTextures(1, &gMetalness);
+    glBindTexture(GL_TEXTURE_2D, gMetalness);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, gMetalness, 0);
+
 
     // Define the COLOR_ATTACHMENTS for the G-Buffer
-    GLuint attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
-    glDrawBuffers(3, attachments);
+    GLuint attachments[5] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4};
+    glDrawBuffers(5, attachments);
 
     // Z-Buffer
     glGenRenderbuffers(1, &zBuffer);
@@ -784,10 +850,16 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         glfwSetWindowShouldClose(window, GL_TRUE);
 
     if (key == GLFW_KEY_F11 && action == GLFW_PRESS)
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    {
+        screenMode = !screenMode;
 
-    if (key == GLFW_KEY_F12 && action == GLFW_PRESS)
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+//        GLFWwindow* newWindow = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", screenMode ? glfwGetPrimaryMonitor() : nullptr, window);
+//        GLFWwindow* newWindow = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", glfwGetPrimaryMonitor(), window);
+//        glfwDestroyWindow(window);
+//        GLFWwindow* window = newWindow;
+
+//        glfwMakeContextCurrent(window);
+    }
 
     if (keys[GLFW_KEY_1])
         gBufferView = 1;
@@ -803,6 +875,15 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
     if (keys[GLFW_KEY_5])
         gBufferView = 5;
+
+    if (keys[GLFW_KEY_6])
+        gBufferView = 6;
+
+    if (keys[GLFW_KEY_7])
+        gBufferView = 7;
+
+    if (keys[GLFW_KEY_8])
+        gBufferView = 8;
 
     if (key >= 0 && key < 1024)
     {

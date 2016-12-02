@@ -5,8 +5,8 @@ GLEngine is a C++ OpenGL graphics engine which aimed to be a skill, knowledge an
 Screenshot
 ------
 
-![](http://i.imgur.com/GNWNW98.png)
-![](http://i.imgur.com/0KuTFTz.png)
+![](http://i.imgur.com/BJbjdWB.png)
+![](http://i.imgur.com/3lPLcvZ.png)
 
 
 Features
@@ -15,51 +15,49 @@ Features
 * Camera :
     * Movements
     * Zoom in/out
-    * **TODO :** Support of physical camera (exposure, distortion...)
-
-* Shaders :
-    * Init/loading/binding from anywhere
-    * SSAO
-    * **TODO :** Deferred Rendering compliant
-    * **TODO :** PBR material pipeline compliant
-    * **TODO :** Post-processing (FXAA, DoF, motion blur, bloom, SSR, SSS...)
+    * **TODO :** Support of physically based camera (exposure, distortion...)
 
 * Textures :
-    * **TODO :** Init/loading/binding from anywhere
-    * **TODO :** PBR material pipeline compliant (albedo, normal, roughness, metalness, AO)
-    
+    * Init/loading/binding from anywhere
+	* **TODO :** HDR
+	* **TODO :** Cubemap
+
+* Material :
+	* **TODO :** PBR material pipeline compliant (albedo, normal, roughness, metalness, AO)
+	* **TODO :** Informations seamlessly sent to the G-Buffer
+
 * Models/Meshes :
     * External models loading (.obj)
     * Textures support
     * **TODO :** Revamp & debug to support kinda buggy models
     * **TODO :** PBR material pipeline compliant
-    
-* Lights :
-    * Point light
-    * **TODO :** Directional light
-    * **TODO :** Spot light
-    
-* Resources Manager :
-    * **TODO :** Resources (textures, shaders, models, materials...) centralization
-    
+
 * Basic Shapes :
     * Simple shape generation (triangle, plane, cube)
     * Predefined array based
     * **TODO :** Shape topology computation
+
+* Shaders :
+    * Init/loading/binding from anywhere
+    * **TODO :** Deferred Rendering compliant
+    * **TODO :** PBR material pipeline compliant
     
+* Resources Manager :
+    * **TODO :** Resources (textures, shaders, models, materials...) centralization
+
+* Lights :
+    * Point light
+    * Directional light
+    * **TODO :** Spot light
+
 * Lighting :
     * Lambert
     * Phong
     * Cook-Torrance BRDF
     * Deferred Rendering
     * **TODO :** Blinn-Phong
-    * **TODO :** Tiled Deferred Rendering
-    * **TODO :** Shadow-mapping
-
-* Environment Mapping :
-    * 6-faced cubemap generation
-    * **TODO :** Deferred Rendering compliant
-    * **TODO :** Equirectangular HDR maps
+    * **TODO :** Tiled Deferred Rendering (Compute shaders ?)
+    * **TODO :** Shadow-mapping (PCF/Variance)
 
 * PBR Pipeline :
     * BRDF :
@@ -70,7 +68,22 @@ Features
         * Geometry attenuation : GGX-Smith
     * **TODO :** Image-Based Lighting
     * **TODO :** Proper material pipeline using a roughness/metalness workflow
-    
+
+* Post-processing :
+	* SSAO
+	* **TODO :** Motion Blur (camera/per-fragment)
+	* **TODO :** PPAA (FXAA...)
+	* **TODO :** Bloom
+	* **TODO :** Depth of Field
+	* **TODO :** Screen-Space Reflections
+	* **TODO :** Lens Flare
+	* **TODO :** Eye Adaptation
+
+* Environment Mapping :
+    * 6-faced cubemap generation
+    * **TODO :** Deferred Rendering compliant
+    * **TODO :** Equirectangular HDR maps
+ 
 * Utility :
     * GUI using ImGui
     * Basic/naive GPU profiling
@@ -88,7 +101,6 @@ Download the source, open the CMakeList.txt file with QtCreator, build the proje
 
 * In GLEngine :
     * Hold the right mouse button to use the camera and its features
-    * Toggle between solid and wireframe rendering using the F11/F12 buttons
     * Toggle between the different buffers using the 1-5 buttons
 
 Dependencies (included)

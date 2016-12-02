@@ -13,22 +13,45 @@
 class TextureObject
 {
     public:
+        GLuint texID, texWidth, texHeight, texComponents;
+        GLenum texFormat;
+
         TextureObject(const char* texPath)
         {
-            glGenTextures(1, &m_texID);
-            glBindTexture(GL_TEXTURE_2D, m_texID);
+            string tempPath = string(texPath);
+            stbi_set_flip_vertically_on_load(true);
+
+            glGenTextures(1, &texID);
+            glBindTexture(GL_TEXTURE_2D, texID);
 
             int width, height, numComponents;
-            unsigned char* texData = stbi_load(texPath, &width, &height, &numComponents, numComponents);
-            if (texData == NULL)
-                std::cerr << "Loading failed : " << texPath << std::endl;
+            unsigned char* texData = stbi_load(tempPath.c_str(), &width, &height, &numComponents, 0);
+            this->texWidth = width;
+            this->texHeight = height;
+            this->texComponents = numComponents;
 
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texData);
-            glGenerateMipmap(GL_TEXTURE_2D);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            if (texData)
+            {
+                if (numComponents == 1)
+                    this->texFormat = GL_RED;
+                else if (numComponents == 3)
+                    this->texFormat = GL_RGB;
+                else if (numComponents == 4)
+                    this->texFormat = GL_RGBA;
+
+                glTexImage2D(GL_TEXTURE_2D, 0, this->texFormat, this->texWidth, this->texHeight, 0, this->texFormat, GL_UNSIGNED_BYTE, texData);
+
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+                glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glGenerateMipmap(GL_TEXTURE_2D);
+            }
+
+            else
+            {
+                std::cerr << "TEXTURE FAILED LOADING : " << texPath << std::endl;
+            }
 
             stbi_image_free(texData);
             glBindTexture(GL_TEXTURE_2D, 0);
@@ -37,20 +60,14 @@ class TextureObject
 
         ~TextureObject()
         {
-            glDeleteTextures(1, &m_texID);
+            glDeleteTextures(1, &texID);
         }
 
 
         void Bind()
         {
-            glBindTexture(GL_TEXTURE_2D, m_texID);
+            glBindTexture(GL_TEXTURE_2D, texID);
         }
-
-    private:
-        TextureObject(const TextureObject& texture) {}
-        void operator=(const TextureObject& texture) {}
-
-        GLuint m_texID;
 };
 
 #endif

@@ -155,11 +155,11 @@ class ShapeObject
             if (shapeDiffusePath != "" && shapeSpecularPath != "")
             {
                 glActiveTexture(GL_TEXTURE0);
-                glUniform1i(glGetUniformLocation(lightingShader.Program, "material.texture_diffuse1"), 0);
                 glBindTexture(GL_TEXTURE_2D, shapeDiffuseID);
+                glUniform1i(glGetUniformLocation(lightingShader.Program, "material.texture_diffuse1"), 0);
                 glActiveTexture(GL_TEXTURE1);
-                glUniform1i(glGetUniformLocation(lightingShader.Program, "material.texture_specular1"), 1);
                 glBindTexture(GL_TEXTURE_2D, shapeSpecularID);
+                glUniform1i(glGetUniformLocation(lightingShader.Program, "material.texture_specular1"), 1);
                 glUniform1f(glGetUniformLocation(lightingShader.Program, "material.shininess"), 15.0f);
                 glActiveTexture(GL_TEXTURE0);
             }
@@ -261,6 +261,7 @@ class ShapeObject
             int width, height, numComponents;
 
             unsigned char* texDiffuseData = stbi_load(shapeDiffusePath.c_str(), &width, &height, &numComponents, numComponents);
+
             if (texDiffuseData == NULL)
                 std::cerr << "FAILED LOADING DIFFUSE : " << shapeDiffusePath << std::endl;
 
