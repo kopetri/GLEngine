@@ -5,8 +5,8 @@ GLEngine is a C++ OpenGL graphics engine which aimed to be a skill, knowledge an
 Screenshot
 ------
 
-![](http://i.imgur.com/BJbjdWB.png)
-![](http://i.imgur.com/3lPLcvZ.png)
+![](http://i.imgur.com/5ph98jf.png)
+![](http://i.imgur.com/lobgrM6.png)
 
 
 Features
@@ -19,6 +19,7 @@ Features
 
 * Textures :
     * Init/loading/binding from anywhere
+	* Anisotropic Filtering
 	* **TODO :** HDR
 	* **TODO :** Cubemap
 
@@ -88,6 +89,7 @@ Features
     * GUI using ImGui
     * Basic/naive GPU profiling
     * G-Buffer visualization for debugging purpose
+	* Borderless Fullscreen
     * **TODO :** Logging
     * **TODO :** CPU profiling
     * **TODO :** GUI using Qt5 (which imply a whole project revamping)

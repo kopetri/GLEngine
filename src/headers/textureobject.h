@@ -14,21 +14,28 @@ class TextureObject
 {
     public:
         GLuint texID, texWidth, texHeight, texComponents;
+        GLfloat anisoFilterLevel;
         GLenum texFormat;
 
-        TextureObject(const char* texPath)
+        std::string texUniformName;
+
+
+        TextureObject(const char* texPath, std::string uniformName)
         {
             string tempPath = string(texPath);
             stbi_set_flip_vertically_on_load(true);
 
             glGenTextures(1, &texID);
             glBindTexture(GL_TEXTURE_2D, texID);
+            glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &anisoFilterLevel);  // Request the maximum level of anisotropy the GPU used can support and use it
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisoFilterLevel);
 
             int width, height, numComponents;
             unsigned char* texData = stbi_load(tempPath.c_str(), &width, &height, &numComponents, 0);
             this->texWidth = width;
             this->texHeight = height;
             this->texComponents = numComponents;
+            this->texUniformName = uniformName;
 
             if (texData)
             {
@@ -43,7 +50,8 @@ class TextureObject
 
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-                glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);     // Need AF to get ride of the blur on textures
+//                glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);     // Very granular
                 glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
                 glGenerateMipmap(GL_TEXTURE_2D);
             }
@@ -61,6 +69,24 @@ class TextureObject
         ~TextureObject()
         {
             glDeleteTextures(1, &texID);
+        }
+
+
+        GLuint getTexWidth()
+        {
+            return this->texWidth;
+        }
+
+
+        GLuint getTexHeight()
+        {
+            return this->texHeight;
+        }
+
+
+        std::string getTexUniformName()
+        {
+            return this->texUniformName;
         }
 
 

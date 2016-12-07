@@ -79,7 +79,8 @@ void main()
         if(NdotL > 0)
         {
             // Lambertian computation
-            diffuse = albedo/PI;
+//            diffuse = albedo/PI - (albedo/PI) * metalness;    // The right way to compute diffuse but any surface that should reflect the environment would appear black at the moment...
+            diffuse = (albedo/PI);
 
             // Disney diffuse term
             float kDisney = KDisneyTerm(NdotL, NdotV, roughness);

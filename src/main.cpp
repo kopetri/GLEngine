@@ -9,6 +9,7 @@
 #include "textureobject.h"
 #include "lightobject.h"
 #include "cubemap.h"
+#include "materialobject.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -25,6 +26,7 @@
 #include <sstream>
 #include <map>
 #include <vector>
+#include <tuple>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
@@ -56,8 +58,8 @@ GLfloat lerp(GLfloat x, GLfloat y, GLfloat a);
 // Variables & objects declarations
 //---------------------------------
 
-const GLuint WIDTH = 1280;
-const GLuint HEIGHT = 720;
+GLuint WIDTH = 1280;
+GLuint HEIGHT = 720;
 
 GLuint gBufferQuadVAO, gBufferQuadVBO;
 GLuint gBuffer, zBuffer, gPosition, gNormal, gAlbedo, gRoughness, gMetalness;
@@ -116,8 +118,19 @@ int main(int argc, char* argv[])
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-//    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", glfwGetPrimaryMonitor(), nullptr);
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", nullptr, nullptr);
+    GLFWmonitor* glMonitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* glfwMode = glfwGetVideoMode(glMonitor);
+
+    glfwWindowHint(GLFW_RED_BITS, glfwMode->redBits);
+    glfwWindowHint(GLFW_GREEN_BITS, glfwMode->greenBits);
+    glfwWindowHint(GLFW_BLUE_BITS, glfwMode->blueBits);
+    glfwWindowHint(GLFW_REFRESH_RATE, glfwMode->refreshRate);
+
+    WIDTH = glfwMode->width;
+    HEIGHT = glfwMode->height;
+
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", glMonitor, NULL);
+//    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", nullptr, nullptr);
     glfwMakeContextCurrent(window);
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -146,25 +159,37 @@ int main(int argc, char* argv[])
     //---------
     // Textures(s)
     //---------
-    TextureObject ironAlbedo("resources/textures/pbr/rustediron/rustediron_albedo.png");
-    TextureObject ironNormal("resources/textures/pbr/rustediron/rustediron_normal.png");
-    TextureObject ironRoughness("resources/textures/pbr/rustediron/rustediron_roughness.png");
-    TextureObject ironMetallic("resources/textures/pbr/rustediron/rustediron_metallic.png");
+    TextureObject ironAlbedo("resources/textures/pbr/rustediron/rustediron_albedo.png", "texAlbedo");
+    TextureObject ironNormal("resources/textures/pbr/rustediron/rustediron_normal.png", "texNormal");
+    TextureObject ironRoughness("resources/textures/pbr/rustediron/rustediron_roughness.png", "texRoughness");
+    TextureObject ironMetalness("resources/textures/pbr/rustediron/rustediron_metalness.png", "texMetalness");
 
-//    TextureObject aluminiumAlbedo("resources/textures/pbr/aluminium/aluminium_albedo.png");
-//    TextureObject aluminiumNormal("resources/textures/pbr/aluminium/aluminium_normal.png");
-//    TextureObject aluminiumRoughness("resources/textures/pbr/aluminium/aluminium_roughness.png");
-//    TextureObject aluminiumMetallic("resources/textures/pbr/aluminium/aluminium_metallic.png");
+//    TextureObject aluminiumAlbedo("resources/textures/pbr/aluminium/aluminium_albedo.png", "texAlbedo");
+//    TextureObject aluminiumNormal("resources/textures/pbr/aluminium/aluminium_normal.png", "texNormal");
+//    TextureObject aluminiumRoughness("resources/textures/pbr/aluminium/aluminium_roughness.png", "texRoughness");
+//    TextureObject aluminiumMetalness("resources/textures/pbr/aluminium/aluminium_metalness.png", "texMetalness");
 
-//    TextureObject goldAlbedo("resources/textures/pbr/gold/gold_albedo2.png");
-//    TextureObject goldNormal("resources/textures/pbr/gold/gold_normal.png");
-//    TextureObject goldRoughness("resources/textures/pbr/gold/gold_roughness.png");
-//    TextureObject goldMetallic("resources/textures/pbr/gold/gold_metallic.png");
+//    TextureObject goldAlbedo("resources/textures/pbr/gold/gold_albedo2.png", "texAlbedo");
+//    TextureObject goldNormal("resources/textures/pbr/gold/gold_normal.png", "texNormal");
+//    TextureObject goldRoughness("resources/textures/pbr/gold/gold_roughness.png", "texRoughness");
+//    TextureObject goldMetalness("resources/textures/pbr/gold/gold_metalness.png", "texMetalness");
 
-//    TextureObject woodfloorAlbedo("resources/textures/pbr/woodfloor/woodfloor_albedo.png");
-//    TextureObject woodfloorNormal("resources/textures/pbr/woodfloor/woodfloor_normal.png");
-//    TextureObject woodfloorRoughness("resources/textures/pbr/woodfloor/woodfloor_roughness.png");
+//    TextureObject woodfloorAlbedo("resources/textures/pbr/woodfloor/woodfloor_albedo.png", "texAlbedo");
+//    TextureObject woodfloorNormal("resources/textures/pbr/woodfloor/woodfloor_normal.png", "texNormal");
+//    TextureObject woodfloorRoughness("resources/textures/pbr/woodfloor/woodfloor_roughness.png", "texRoughness");
+//    TextureObject woodfloorMetalness("resources/textures/pbr/woodfloor/woodfloor_metalness.png", "texMetalness");
 
+
+    //----------
+    // Material(s)
+    //----------
+//    MaterialObject pbrMat;
+//    pbrMat.addTexture("texAlbedo", ironAlbedo);
+//    pbrMat.addTexture("texRoughness", ironRoughness);
+//    pbrMat.addTexture("texMetalness", ironMetalness);
+//    pbrMat.addTexture("texAlbedo", TextureObject ("resources/textures/pbr/rustediron/rustediron_albedo.png", "texAlbedo"));
+//    pbrMat.addTexture("texRoughness", TextureObject ("resources/textures/pbr/rustediron/rustediron_roughness.png", "texRoughness"));
+//    pbrMat.addTexture("texMetalness", TextureObject ("resources/textures/pbr/rustediron/rustediron_metalness.png", "texMetalness"));
 
     //----------
     // Shader(s)
@@ -326,10 +351,11 @@ int main(int argc, char* argv[])
 
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+
+        GLfloat rotationAngle = glfwGetTime()/5.0f * 5.0f;
         model = glm::mat4();
         model = glm::translate(model, glm::vec3(0.0f));
-        GLfloat angle = glfwGetTime()/5.0f * 5.0f;
-        model = glm::rotate(model, 0.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::rotate(model, rotationAngle, glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::scale(model, glm::vec3(0.1f, 0.1f, 0.1f));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "modelViewProj"), 1, GL_FALSE, glm::value_ptr(model * view * projection));
@@ -337,6 +363,8 @@ int main(int argc, char* argv[])
         glUniform3f(glGetUniformLocation(gBufferShader.Program, "albedoColor"), albedoColor.r, albedoColor.g, albedoColor.b);
 
         // Material
+//        pbrMat.renderToShader(gBufferShader);
+
         glActiveTexture(GL_TEXTURE0);
         ironAlbedo.Bind();
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "texAlbedo"), 0);
@@ -344,7 +372,7 @@ int main(int argc, char* argv[])
         ironRoughness.Bind();
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "texRoughness"), 1);
         glActiveTexture(GL_TEXTURE2);
-        ironMetallic.Bind();
+        ironMetalness.Bind();
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "texMetalness"), 2);
 
         shaderballModel.Draw(gBufferShader);
@@ -607,7 +635,7 @@ void imGuiSetup()
         {
             ImGui::ColorEdit3("Albedo", (float*)&albedoColor);
             ImGui::SliderFloat("Roughness", &materialRoughness, 0.0f, 1.0f);
-            ImGui::SliderFloat("Metallicity", &materialMetallicity, 0.0f, 1.0f);
+            ImGui::SliderFloat("Metalness", &materialMetallicity, 0.0f, 1.0f);
             ImGui::SliderFloat3("F0", (float*)&materialF0, 0.0f, 1.0f);
 
             ImGui::TreePop();

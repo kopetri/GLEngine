@@ -14,7 +14,7 @@ uniform vec3 albedoColor;
 uniform sampler2D texAlbedo;
 uniform sampler2D texNormal;
 uniform sampler2D texRoughness;
-uniform sampler2D texMetallic;
+uniform sampler2D texMetalness;
 
 const float nearPlane = 0.1;
 const float farPlane = 100.0f;
@@ -32,7 +32,7 @@ void main()
 //    gAlbedo.rgb = vec3(albedoColor);
     gAlbedo.rgb = vec3(texture(texAlbedo, TexCoords));
     gRoughness.rgb = vec3(texture(texRoughness, TexCoords));
-    gMetalness.rgb = vec3(texture(texMetallic, TexCoords));
+    gMetalness.rgb = vec3(texture(texMetalness, TexCoords));
 }
 
 
