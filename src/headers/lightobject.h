@@ -29,6 +29,8 @@ class LightObject
 
         bool lightToMesh = false;
 
+        float lightRadius;
+
         glm::vec3 lightPosition;
         glm::vec3 lightDirection;
         glm::vec4 lightColor;
@@ -36,11 +38,12 @@ class LightObject
         ShapeObject lightMesh = ShapeObject("cube", glm::vec3(0.0f, 0.0f, 0.0f));
 
 
-        LightObject(glm::vec3 position, glm::vec4 color, bool isMesh)
+        LightObject(glm::vec3 position, glm::vec4 color, float radius, bool isMesh)
         {
             this->lightType = "point";
             this->lightPosition = position;
             this->lightColor = color;
+            this->lightRadius = radius;
             this->lightPointID = lightPointCount;
             this->lightToMesh = isMesh;
 
@@ -77,6 +80,7 @@ class LightObject
 
                 glUniform3f(glGetUniformLocation(shader.Program, ("lightPointArray["+ to_string(this->lightPointID) +"].position").c_str()), lightPositionViewSpace.x, lightPositionViewSpace.y, lightPositionViewSpace.z);
                 glUniform4f(glGetUniformLocation(shader.Program, ("lightPointArray["+ to_string(this->lightPointID) +"].color").c_str()), this->lightColor.r, this->lightColor.g, this->lightColor.b, this->lightColor.a);
+                glUniform1f(glGetUniformLocation(shader.Program, ("lightPointArray["+ to_string(this->lightPointID) +"].radius").c_str()), this->lightRadius);
             }
 
             else if(this->lightType == "directional")
@@ -91,25 +95,38 @@ class LightObject
 
         std::string getLightType()
         {
-            return lightType;
+            if(this->lightType == "point")
+                return lightPointList[this->lightPointID].lightType;
+            if(this->lightType == "directional")
+                return lightDirectionalList[this->lightPointID].lightType;
+
         }
 
 
         glm::vec3 getLightPosition()
         {
-            return lightPosition;
+            return lightPointList[this->lightPointID].lightPosition;
         }
 
 
         glm::vec3 getLightDirection()
         {
-            return lightDirection;
+            return lightDirectionalList[this->lightPointID].lightDirection;
         }
 
 
         glm::vec4 getLightColor()
         {
-            return lightColor;
+            if(this->lightType == "point")
+                return lightPointList[this->lightPointID].lightColor;
+            if(this->lightType == "directional")
+                return lightDirectionalList[this->lightPointID].lightColor;
+        }
+
+
+        float getLightRadius()
+        {
+            return lightPointList[this->lightPointID].lightRadius;
         }
 
 
@@ -120,6 +137,7 @@ class LightObject
             if(this->lightType == "directional")
                 return lightDirectionalID;
         }
+
 
         bool isMesh()
         {
@@ -146,6 +164,11 @@ class LightObject
                 lightPointList[this->lightPointID].lightColor = color;
             if(this->lightType == "directional")
                 lightDirectionalList[this->lightDirectionalID].lightColor = color;
+        }
+
+        void setLightRadius(float radius)
+        {
+            lightPointList[this->lightPointID].lightRadius = radius;
         }
 };
 

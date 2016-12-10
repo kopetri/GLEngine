@@ -50,6 +50,7 @@ void cameraMove();
 void imGuiSetup();
 void gBufferSetup();
 void ssaoSetup();
+void postprocessSetup();
 void gBufferQuad();
 
 GLfloat lerp(GLfloat x, GLfloat y, GLfloat a);
@@ -58,12 +59,13 @@ GLfloat lerp(GLfloat x, GLfloat y, GLfloat a);
 // Variables & objects declarations
 //---------------------------------
 
-GLuint WIDTH = 1280;
-GLuint HEIGHT = 720;
+GLuint WIDTH = 1024;
+GLuint HEIGHT = 576;
 
 GLuint gBufferQuadVAO, gBufferQuadVBO;
 GLuint gBuffer, zBuffer, gPosition, gNormal, gAlbedo, gRoughness, gMetalness;
 GLuint ssaoFBO, ssaoBlurFBO, ssaoBuffer, ssaoBlurBuffer, noiseTexture;
+GLuint postprocessFBO, postprocessBuffer;
 
 GLint gBufferView = 1;
 GLint ssaoKernelSize = 32;
@@ -85,6 +87,9 @@ GLfloat materialMetallicity = 0.0f;
 GLfloat ssaoRadius = 1.0f;
 GLfloat ssaoVisibility = 1;
 GLfloat ssaoPower = 1.0f;
+GLfloat lightPointRadius1 = 3.0f;
+GLfloat lightPointRadius2 = 3.0f;
+GLfloat lightPointRadius3 = 3.0f;
 
 bool screenMode = false;
 bool cameraMode;
@@ -204,6 +209,7 @@ int main(int argc, char* argv[])
 
     Shader ssaoShader("resources/shaders/postprocess/ssao.vert", "resources/shaders/postprocess/ssao.frag");
     Shader ssaoBlurShader("resources/shaders/postprocess/ssao.vert", "resources/shaders/postprocess/ssaoBlur.frag");
+    Shader testPostprocessShader("resources/shaders/postprocess/postprocess.vert", "resources/shaders/postprocess/testPostprocess.frag");
 
 
     //---------------
@@ -215,9 +221,9 @@ int main(int argc, char* argv[])
     //----------------
     // Light source(s)
     //----------------
-    LightObject lightPoint1(lightPointPosition1, glm::vec4(lightPointColor1, 1.0f), true);
-    LightObject lightPoint2(lightPointPosition2, glm::vec4(lightPointColor2, 1.0f), true);
-    LightObject lightPoint3(lightPointPosition3, glm::vec4(lightPointColor3, 1.0f), true);
+    LightObject lightPoint1(lightPointPosition1, glm::vec4(lightPointColor1, 1.0f), lightPointRadius1, true);
+    LightObject lightPoint2(lightPointPosition2, glm::vec4(lightPointColor2, 1.0f), lightPointRadius2, true);
+    LightObject lightPoint3(lightPointPosition3, glm::vec4(lightPointColor3, 1.0f), lightPointRadius3, true);
 
     LightObject lightDirectional1(glm::vec3(-0.2f, -1.0f, -0.3f), glm::vec4(lightDirectionalColor1, 1.0f));
 
@@ -286,12 +292,14 @@ int main(int argc, char* argv[])
     ssaoSetup();
 
 
-    //------------
-    // Post-processing setup
-    //------------
+    //---------------------
+    // Postprocessing setup
+    //---------------------
     glm::mat4 prevProjection;
     glm::mat4 prevView;
     glm::mat4 prevModel;
+
+    postprocessSetup();
 
 
     //------------------------------
@@ -457,6 +465,9 @@ int main(int argc, char* argv[])
         lightPoint1.setLightColor(glm::vec4(lightPointColor1, 1.0f));
         lightPoint2.setLightColor(glm::vec4(lightPointColor2, 1.0f));
         lightPoint3.setLightColor(glm::vec4(lightPointColor3, 1.0f));
+        lightPoint1.setLightRadius(lightPointRadius1);
+        lightPoint2.setLightRadius(lightPointRadius2);
+        lightPoint3.setLightRadius(lightPointRadius3);
 
         for(int i = 0; i < LightObject::lightPointList.size(); i++)
         {
@@ -500,6 +511,8 @@ int main(int argc, char* argv[])
 //        glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gBufferView"), gBufferView);
 //        glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "ssaoVisibility"), ssaoVisibility);
 
+//        gBufferQuad();
+
         glQueryCounter(queryIDLighting[1], GL_TIMESTAMP);
 
 
@@ -512,7 +525,9 @@ int main(int argc, char* argv[])
         //-------------------------------
         // Post-processing Pass rendering
         //-------------------------------
-
+//        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//        testPostprocessShader.Use();
+//        gBufferQuad();
 
 
         //-----------------------
@@ -626,8 +641,6 @@ void imGuiSetup()
     ImGui_ImplGlfwGL3_NewFrame();
 
     ImGui::Begin("GLEngine", &guiIsOpen, ImVec2(0, 0), 0.5f, ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoSavedSettings);
-//    ImGui::SetWindowPos(ImVec2(10, 10));
-//    ImGui::SetWindowSize(ImVec2(420, HEIGHT - 20));
 
     if (ImGui::CollapsingHeader("Rendering options", 0, true, true))
     {
@@ -658,6 +671,15 @@ void imGuiSetup()
                 ImGui::ColorEdit3("Point Color 2", (float*)&lightPointColor2);
                 ImGui::ColorEdit3("Point Color 3", (float*)&lightPointColor3);
                 ImGui::ColorEdit3("Direct. Color 1", (float*)&lightDirectionalColor1);
+
+                ImGui::TreePop();
+            }
+
+            if (ImGui::TreeNode("Radius"))
+            {
+                ImGui::SliderFloat("Point Radius 1", &lightPointRadius1, 0.0f, 10.0f);
+                ImGui::SliderFloat("Point Radius 2", &lightPointRadius2, 0.0f, 10.0f);
+                ImGui::SliderFloat("Point Radius 3", &lightPointRadius3, 0.0f, 10.0f);
 
                 ImGui::TreePop();
             }
@@ -830,6 +852,24 @@ void ssaoSetup()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 }
+
+
+void postprocessSetup()
+{
+    // Post-processing Buffer
+    glGenFramebuffers(1, &postprocessFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, postprocessFBO);
+
+    glGenTextures(1, &postprocessBuffer);
+    glBindTexture(GL_TEXTURE_2D, postprocessBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, postprocessBuffer, 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "SSAO Framebuffer not complete !" << std::endl;
+}
+
 
 
 void gBufferQuad()

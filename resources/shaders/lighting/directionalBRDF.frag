@@ -76,39 +76,43 @@ void main()
         float NdotL = dot(N, L);
         float NdotV = dot(N, V);
 
-        if(NdotL > 0)
-        {
-            // Lambertian computation
-//            diffuse = albedo/PI - (albedo/PI) * metalness;    // The right way to compute diffuse but any surface that should reflect the environment would appear black at the moment...
-            diffuse = (albedo/PI);
 
-            // Disney diffuse term
-            float kDisney = KDisneyTerm(NdotL, NdotV, roughness);
+        // Ambient component computation
+        vec3 ambient = albedo * 0.001f;    // While we don't have IBL...
 
-            // Fresnel (Schlick) computation (F term)
-            // F0 = 0.04 --> dielectric UE4
-            vec3 F0 = mix(materialF0, diffuse, metalness);
-            vec3 F = FresnelSchlick(max(NdotV, 0.0), F0, roughness);
+        // Diffuse component computation
+//        diffuse = albedo/PI - (albedo/PI) * metalness;    // The right way to compute diffuse but any surface that should reflect the environment would appear black at the moment...
+        diffuse = (albedo/PI);
 
-            // Distribution (GGX) computation (D term)
-            float D = DistributionGGX(N, H, roughness);
+        // Disney diffuse term
+        float kDisney = KDisneyTerm(NdotL, NdotV, roughness);
 
-            // Geometry attenuation (GGX-Smith) computation (G term)
-            float G = GeometryAttenuationGGXSmith(NdotL, NdotV, roughness);
+        // Fresnel (Schlick) computation (F term)
+        // F0 = 0.04 --> dielectric UE4
+        vec3 F0 = mix(materialF0, diffuse, metalness);
+        vec3 F = FresnelSchlick(max(NdotV, 0.0), F0, roughness);
 
-            // Specular component computation
-            specular = (F * D * G) / (4 * NdotL * NdotV);
+        // Distribution (GGX) computation (D term)
+        float D = DistributionGGX(N, H, roughness);
 
-            // Clamp color components between 0.0f and 1.0f
-            diffuse = saturate(diffuse);
-            specular = saturate(specular);
+        // Geometry attenuation (GGX-Smith) computation (G term)
+        float G = GeometryAttenuationGGXSmith(NdotL, NdotV, roughness);
 
-            // SSAO
-            vec3 ssao = vec3(ssaoVisibility * ao);
+        // Specular component computation
+        specular = (F * D * G) / (4 * NdotL * NdotV);
+
+        // Clamp color components between 0.0f and 1.0f
+        diffuse = saturate(diffuse);
+        specular = saturate(specular);
+
+        // SSAO
+        vec3 ssao = vec3(ssaoVisibility * ao);
+
+        // Diffuse energy conservation
+        vec3 kD = 1.0f - specular;
 
 
-            color += ssao * lightColor * NdotL * (diffuse * kDisney * (1.0f - specular) + specular);
-        }
+        color += ambient + ssao * lightColor * NdotL * (diffuse * kDisney * kD + specular);
     }
 
     // Switching between the different buffers
