@@ -18,6 +18,7 @@ uniform sampler2D gNormal;
 uniform sampler2D gAlbedo;
 uniform sampler2D gRoughness;
 uniform sampler2D gMetalness;
+uniform sampler2D gAO;
 uniform sampler2D ssao;
 
 // Light source(s) informations
@@ -27,7 +28,7 @@ uniform LightObject lightPointArray[3];
 uniform int gBufferView;
 uniform float materialRoughness;
 uniform float materialMetallicity;
-uniform float ssaoVisibility;
+uniform float ambientIntensity;
 uniform vec3 viewPos;
 uniform vec3 materialF0;
 
@@ -54,7 +55,8 @@ void main()
     vec3 albedo = colorLinear(texture(gAlbedo, TexCoords).rgb);
     float roughness = texture(gRoughness, TexCoords).r;
     float metalness = texture(gMetalness, TexCoords).r;
-    float ao = texture(ssao, TexCoords).r;
+    float ao = texture(gAO, TexCoords).r;
+    float ssao = texture(ssao, TexCoords).r;
     float depth = texture(gPosition, TexCoords).a;
 
     vec3 V = normalize(- worldPos);
@@ -64,7 +66,9 @@ void main()
     vec3 color = vec3(0.0f);
     vec3 diffuse = vec3(0.0f);
     vec3 specular = vec3(0.0f);
-//    vec3 envMap = texture(cubemap, R).rgb;
+
+    // Ambient component computation
+    vec3 ambient = ao * albedo * vec3(ambientIntensity);    // While we don't have IBL...
 
     for (int i = 0; i < lightPointCounter; i++)
     {
@@ -76,14 +80,12 @@ void main()
 //        float attenuation = 1.0 / (distanceL * distanceL);    // Quadratic attenuation
         float attenuation = pow(saturate(1 - pow(distanceL / lightPointArray[i].radius, 4)), 2) / (distanceL * distanceL + 1);    // UE4 attenuation
 
-
         // BRDF terms
         float NdotL = saturate(dot(N, L));
         float NdotV = saturate(dot(N, V));
 
-
-        // Ambient component computation
-        vec3 ambient = albedo * 0.001f;    // While we don't have IBL...
+        // Radiance computation
+        vec3 kRadiance = lightColor * attenuation;
 
         // Diffuse component computation
 //        diffuse = albedo/PI - (albedo/PI) * metalness;    // The right way to compute diffuse but any surface that should reflect the environment would appear black at the moment...
@@ -93,7 +95,6 @@ void main()
         float kDisney = KDisneyTerm(NdotL, NdotV, roughness);
 
         // Fresnel (Schlick) computation (F term)
-        // F0 = 0.04 --> dielectric UE4
         vec3 F0 = mix(materialF0, diffuse, metalness);
         vec3 F = FresnelSchlick(max(NdotV, 0.0), F0, roughness);
 
@@ -104,25 +105,20 @@ void main()
         float G = GeometryAttenuationGGXSmith(NdotL, NdotV, roughness);
 
         // Specular component computation
-        specular = (F * D * G) / (4 * NdotL * NdotV);
-
-        // Attenuation computation
-        diffuse *= attenuation;
-        specular *= attenuation;
-
-        // Clamp color components between 0.0f and 1.0f
-        diffuse = saturate(diffuse);
-        specular = saturate(specular);
-
-        // SSAO
-        vec3 ssao = vec3(ssaoVisibility * ao);
+        specular = (F * D * G) / (4 * NdotL * NdotV + 0.0001f);
 
         // Diffuse energy conservation
         vec3 kD = 1.0f - specular;
+//        kD *= 1.0f - metalness;
+        vec3 kS = vec3(1.0f);
+//        vec3 kS = F;
 
 
-        color += ambient + ssao * lightColor * NdotL * (diffuse * kDisney * kD + specular);
+        color += (diffuse * kDisney * kD + specular * kS) * kRadiance * NdotL * ssao;
     }
+
+    color += ambient;
+
 
     // Switching between the different buffers
     // Final buffer
@@ -155,9 +151,9 @@ void main()
     else if (gBufferView == 7)
         colorOutput = vec4(vec3(depth/50.0f), 1.0f);
 
-    // AO buffer
+    // SSAO buffer
     else if (gBufferView == 8)
-        colorOutput = vec4(vec3(ao), 1.0f);
+        colorOutput = vec4(vec3(ssao), 1.0f);
 }
 
 

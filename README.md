@@ -5,8 +5,8 @@ GLEngine is a C++ OpenGL graphics engine which aimed to be a skill, knowledge an
 Screenshot
 ------
 
-![](http://i.imgur.com/5ph98jf.png)
-![](http://i.imgur.com/lobgrM6.png)
+![](http://i.imgur.com/hpewSi9.png)
+![](http://i.imgur.com/6frnrfz.png)
 
 
 Features
@@ -24,24 +24,30 @@ Features
 	* **TODO :** Cubemap
 
 * Material :
-	* **TODO :** PBR material pipeline compliant (albedo, normal, roughness, metalness, AO)
+	* PBR material pipeline :
+		* Albedo
+		* **TODO :** Normal
+		* Roughness
+		* Metalness
+		* AO
 	* **TODO :** Informations seamlessly sent to the G-Buffer
 
 * Models/Meshes :
     * External models loading (.obj)
     * Textures support
-    * **TODO :** Revamp & debug to support kinda buggy models
     * **TODO :** PBR material pipeline compliant
+    * **TODO :** Revamp & debug to support kinda buggy models
 
 * Basic Shapes :
     * Simple shape generation (triangle, plane, cube)
     * Predefined array based
-    * **TODO :** Shape topology computation
+    * **TODO :** Shape topology computation (sphere...)
 
 * Shaders :
     * Init/loading/binding from anywhere
-    * **TODO :** Deferred Rendering compliant
-    * **TODO :** PBR material pipeline compliant
+    * G-Buffer support
+    * PBR material pipeline compliant
+	* **TODO :** UBOs
     
 * Resources Manager :
     * **TODO :** Resources (textures, shaders, models, materials...) centralization
@@ -57,8 +63,8 @@ Features
     * Cook-Torrance BRDF
     * Deferred Rendering
     * **TODO :** Blinn-Phong
-    * **TODO :** Tiled Deferred Rendering (Compute shaders ?)
     * **TODO :** Shadow-mapping (PCF/Variance)
+    * **TODO :** Tiled Deferred Rendering (Compute shaders ?)
 
 * PBR Pipeline :
     * BRDF :
@@ -67,8 +73,8 @@ Features
         * Fresnel term : Schlick
         * Microfacet distribution : GGX
         * Geometry attenuation : GGX-Smith
+    * Material pipeline using a roughness/metalness workflow
     * **TODO :** Image-Based Lighting
-    * **TODO :** Proper material pipeline using a roughness/metalness workflow
 
 * Post-processing :
 	* SSAO
@@ -92,8 +98,8 @@ Features
 	* Borderless Fullscreen
     * **TODO :** Logging
     * **TODO :** CPU profiling
-    * **TODO :** GUI using Qt5 (which imply a whole project revamping)
     * **TODO :** G-Buffer export as .png
+    * **TODO :** GUI using Qt5 (which imply a whole project revamping)
 
 How to use
 ------

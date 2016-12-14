@@ -63,7 +63,7 @@ GLuint WIDTH = 1024;
 GLuint HEIGHT = 576;
 
 GLuint gBufferQuadVAO, gBufferQuadVBO;
-GLuint gBuffer, zBuffer, gPosition, gNormal, gAlbedo, gRoughness, gMetalness;
+GLuint gBuffer, zBuffer, gPosition, gNormal, gAlbedo, gRoughness, gMetalness, gAO;
 GLuint ssaoFBO, ssaoBlurFBO, ssaoBuffer, ssaoBlurBuffer, noiseTexture;
 GLuint postprocessFBO, postprocessBuffer;
 
@@ -84,9 +84,10 @@ GLfloat deltaCubemapTime = 0.0f;
 GLfloat deltaGUITime = 0.0f;
 GLfloat materialRoughness = 0.5f;
 GLfloat materialMetallicity = 0.0f;
+GLfloat ambientIntensity = 0.01f;
 GLfloat ssaoRadius = 1.0f;
-GLfloat ssaoVisibility = 1;
 GLfloat ssaoPower = 1.0f;
+GLfloat ssaoBias = 0.025f;
 GLfloat lightPointRadius1 = 3.0f;
 GLfloat lightPointRadius2 = 3.0f;
 GLfloat lightPointRadius3 = 3.0f;
@@ -98,7 +99,9 @@ bool guiIsOpen = true;
 bool keys[1024];
 
 glm::vec3 albedoColor = glm::vec3(1.0f);
-glm::vec3 materialF0 = glm::vec3(0.56f, 0.57f, 0.58f);
+//glm::vec3 materialF0 = glm::vec3(1.0f, 0.72f, 0.29f);  // Gold
+glm::vec3 materialF0 = glm::vec3(0.56f, 0.57f, 0.58f);  // Iron
+//glm::vec3 materialF0 = glm::vec3(0.04f);  // UE4 dielectric
 glm::vec3 lightPointPosition1 = glm::vec3(1.5f, 0.75f, 1.0f);
 glm::vec3 lightPointPosition2 = glm::vec3(-1.5f, 1.0f, 1.0f);
 glm::vec3 lightPointPosition3 = glm::vec3(0.0f, 0.75f, -1.2f);
@@ -168,6 +171,7 @@ int main(int argc, char* argv[])
     TextureObject ironNormal("resources/textures/pbr/rustediron/rustediron_normal.png", "texNormal");
     TextureObject ironRoughness("resources/textures/pbr/rustediron/rustediron_roughness.png", "texRoughness");
     TextureObject ironMetalness("resources/textures/pbr/rustediron/rustediron_metalness.png", "texMetalness");
+    TextureObject ironAO("resources/textures/pbr/rustediron/rustediron_ao.png", "texAO");
 
 //    TextureObject aluminiumAlbedo("resources/textures/pbr/aluminium/aluminium_albedo.png", "texAlbedo");
 //    TextureObject aluminiumNormal("resources/textures/pbr/aluminium/aluminium_normal.png", "texNormal");
@@ -192,9 +196,11 @@ int main(int argc, char* argv[])
 //    pbrMat.addTexture("texAlbedo", ironAlbedo);
 //    pbrMat.addTexture("texRoughness", ironRoughness);
 //    pbrMat.addTexture("texMetalness", ironMetalness);
+//    pbrMat.addTexture("texAO", ironAO);
 //    pbrMat.addTexture("texAlbedo", TextureObject ("resources/textures/pbr/rustediron/rustediron_albedo.png", "texAlbedo"));
 //    pbrMat.addTexture("texRoughness", TextureObject ("resources/textures/pbr/rustediron/rustediron_roughness.png", "texRoughness"));
 //    pbrMat.addTexture("texMetalness", TextureObject ("resources/textures/pbr/rustediron/rustediron_metalness.png", "texMetalness"));
+//    pbrMat.addTexture("texAO", TextureObject ("resources/textures/pbr/rustediron/rustediron_ao.png", "texAO"));
 
     //----------
     // Shader(s)
@@ -264,7 +270,8 @@ int main(int argc, char* argv[])
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gAlbedo"), 2);
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gRoughness"), 3);
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gMetalness"), 4);
-    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "ssao"), 5);
+    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gAO"), 5);
+    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "ssao"), 6);
 
     directionalBRDFShader.Use();
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gPosition"), 0);
@@ -272,7 +279,8 @@ int main(int argc, char* argv[])
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gAlbedo"), 2);
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gRoughness"), 3);
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gMetalness"), 4);
-    glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "ssao"), 5);
+    glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gAO"), 5);
+    glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "ssao"), 6);
 
     ssaoShader.Use();
     glUniform1i(glGetUniformLocation(ssaoShader.Program, "gPosition"), 0);
@@ -382,6 +390,9 @@ int main(int argc, char* argv[])
         glActiveTexture(GL_TEXTURE2);
         ironMetalness.Bind();
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "texMetalness"), 2);
+        glActiveTexture(GL_TEXTURE3);
+        ironAO.Bind();
+        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texAO"), 3);
 
         shaderballModel.Draw(gBufferShader);
 
@@ -414,6 +425,7 @@ int main(int argc, char* argv[])
         glUniform1i(glGetUniformLocation(ssaoShader.Program, "ssaoNoiseSize"), ssaoNoiseSize);
         glUniform1f(glGetUniformLocation(ssaoShader.Program, "ssaoRadius"), ssaoRadius);
         glUniform1f(glGetUniformLocation(ssaoShader.Program, "ssaoPower"), ssaoPower);
+        glUniform1f(glGetUniformLocation(ssaoShader.Program, "ssaoBias"), ssaoBias);
         glUniform1i(glGetUniformLocation(ssaoShader.Program, "viewportWidth"), WIDTH);
         glUniform1i(glGetUniformLocation(ssaoShader.Program, "viewportHeight"), HEIGHT);
 
@@ -456,6 +468,8 @@ int main(int argc, char* argv[])
         glActiveTexture(GL_TEXTURE4);
         glBindTexture(GL_TEXTURE_2D, gMetalness);
         glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_2D, gAO);
+        glActiveTexture(GL_TEXTURE6);
         glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
 
         // Point light(s) rendering
@@ -478,10 +492,10 @@ int main(int argc, char* argv[])
         glUniform1f(glGetUniformLocation(pointBRDFShader.Program, "materialRoughness"), materialRoughness);
         glUniform1f(glGetUniformLocation(pointBRDFShader.Program, "materialMetallicity"), materialMetallicity);
         glUniform3f(glGetUniformLocation(pointBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
+        glUniform1f(glGetUniformLocation(pointBRDFShader.Program, "ambientIntensity"), ambientIntensity);
         glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gBufferView"), gBufferView);
-        glUniform1f(glGetUniformLocation(pointBRDFShader.Program, "ssaoVisibility"), ssaoVisibility);
 
-        // Directional light(s) rendering
+//        // Directional light(s) rendering
 //        directionalBRDFShader.Use();
 
 //        glActiveTexture(GL_TEXTURE0);
@@ -495,6 +509,8 @@ int main(int argc, char* argv[])
 //        glActiveTexture(GL_TEXTURE4);
 //        glBindTexture(GL_TEXTURE_2D, gMetalness);
 //        glActiveTexture(GL_TEXTURE5);
+//        glBindTexture(GL_TEXTURE_2D, gAO);
+//        glActiveTexture(GL_TEXTURE6);
 //        glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
 
 //        lightDirectional1.setLightColor(glm::vec4(lightDirectionalColor1, 1.0f));
@@ -508,10 +524,8 @@ int main(int argc, char* argv[])
 //        glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "materialRoughness"), materialRoughness);
 //        glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "materialMetallicity"), materialMetallicity);
 //        glUniform3f(glGetUniformLocation(directionalBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
+//        glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "ambientIntensity"), ambientIntensity);
 //        glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gBufferView"), gBufferView);
-//        glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "ssaoVisibility"), ssaoVisibility);
-
-//        gBufferQuad();
 
         glQueryCounter(queryIDLighting[1], GL_TIMESTAMP);
 
@@ -647,9 +661,10 @@ void imGuiSetup()
         if (ImGui::TreeNode("Material options"))
         {
             ImGui::ColorEdit3("Albedo", (float*)&albedoColor);
-            ImGui::SliderFloat("Roughness", &materialRoughness, 0.0f, 1.0f);
-            ImGui::SliderFloat("Metalness", &materialMetallicity, 0.0f, 1.0f);
+//            ImGui::SliderFloat("Roughness", &materialRoughness, 0.0f, 1.0f);
+//            ImGui::SliderFloat("Metalness", &materialMetallicity, 0.0f, 1.0f);
             ImGui::SliderFloat3("F0", (float*)&materialF0, 0.0f, 1.0f);
+            ImGui::SliderFloat("Ambient Intensity", &ambientIntensity, 0.0f, 1.0f);
 
             ImGui::TreePop();
         }
@@ -689,12 +704,12 @@ void imGuiSetup()
 
         if (ImGui::TreeNode("SSAO options"))
         {
-            ImGui::SliderFloat("Visibility", &ssaoVisibility, 0.0f, 1.0f);
             ImGui::SliderFloat("Power", &ssaoPower, 0.0f, 4.0f);
             ImGui::SliderInt("Kernel Size", &ssaoKernelSize, 0, 128);
             ImGui::SliderInt("Noise Size", &ssaoNoiseSize, 0, 16);
             ImGui::SliderFloat("Radius", &ssaoRadius, 0.0f, 3.0f);
             ImGui::SliderInt("Blur Size", &ssaoBlurSize, 0, 16);
+            ImGui::SliderFloat("Bias", &ssaoBias, 0, 0.5f);
 
             ImGui::TreePop();
         }
@@ -778,10 +793,17 @@ void gBufferSetup()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, gMetalness, 0);
 
+    // AO
+    glGenTextures(1, &gAO);
+    glBindTexture(GL_TEXTURE_2D, gAO);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, GL_TEXTURE_2D, gAO, 0);
 
     // Define the COLOR_ATTACHMENTS for the G-Buffer
-    GLuint attachments[5] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4};
-    glDrawBuffers(5, attachments);
+    GLuint attachments[6] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5};
+    glDrawBuffers(6, attachments);
 
     // Z-Buffer
     glGenRenderbuffers(1, &zBuffer);
@@ -846,7 +868,7 @@ void ssaoSetup()
     }
     glGenTextures(1, &noiseTexture);
     glBindTexture(GL_TEXTURE_2D, noiseTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, 4, 4, 0, GL_RGB, GL_FLOAT, &ssaoNoise[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, 4, 4, 0, GL_RGB, GL_FLOAT, &ssaoNoise[0]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
