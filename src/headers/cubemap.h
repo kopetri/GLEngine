@@ -95,7 +95,7 @@ class CubeMap
 
             for(GLuint i = 0; i < cubemapFaces.size(); i++)
             {
-                image = stbi_load(cubemapFaces[i].c_str(), &width, &height, &numComponents, numComponents);
+                image = stbi_load(cubemapFaces[i].c_str(), &width, &height, &numComponents, 0);
                 if (image == NULL)
                     std::cerr << "FAILED LOADING CUBEMAP : " << cubemapFaces[i] << std::endl;
 

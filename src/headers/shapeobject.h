@@ -260,7 +260,7 @@ class ShapeObject
             glGenTextures(1, &shapeDiffuseID);
             int width, height, numComponents;
 
-            unsigned char* texDiffuseData = stbi_load(shapeDiffusePath.c_str(), &width, &height, &numComponents, numComponents);
+            unsigned char* texDiffuseData = stbi_load(shapeDiffusePath.c_str(), &width, &height, &numComponents, 0);
 
             if (texDiffuseData == NULL)
                 std::cerr << "FAILED LOADING DIFFUSE : " << shapeDiffusePath << std::endl;
@@ -284,7 +284,7 @@ class ShapeObject
             glGenTextures(1, &shapeSpecularID);
             int width, height, numComponents;
 
-            unsigned char* texSpecularData = stbi_load(shapeSpecularPath.c_str(), &width, &height, &numComponents, numComponents);
+            unsigned char* texSpecularData = stbi_load(shapeSpecularPath.c_str(), &width, &height, &numComponents, 0);
             if (texSpecularData == NULL)
                 std::cerr << "FAILED LOADING SPECULAR : " << shapeSpecularPath << std::endl;
 

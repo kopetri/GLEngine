@@ -30,6 +30,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <random>
 
 
 //---------------
@@ -59,8 +60,8 @@ GLfloat lerp(GLfloat x, GLfloat y, GLfloat a);
 // Variables & objects declarations
 //---------------------------------
 
-GLuint WIDTH = 1024;
-GLuint HEIGHT = 576;
+GLuint WIDTH = 1280;
+GLuint HEIGHT = 720;
 
 GLuint gBufferQuadVAO, gBufferQuadVBO;
 GLuint gBuffer, zBuffer, gPosition, gNormal, gAlbedo, gRoughness, gMetalness, gAO;
@@ -126,19 +127,19 @@ int main(int argc, char* argv[])
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-    GLFWmonitor* glMonitor = glfwGetPrimaryMonitor();
-    const GLFWvidmode* glfwMode = glfwGetVideoMode(glMonitor);
+//    GLFWmonitor* glMonitor = glfwGetPrimaryMonitor();
+//    const GLFWvidmode* glfwMode = glfwGetVideoMode(glMonitor);
 
-    glfwWindowHint(GLFW_RED_BITS, glfwMode->redBits);
-    glfwWindowHint(GLFW_GREEN_BITS, glfwMode->greenBits);
-    glfwWindowHint(GLFW_BLUE_BITS, glfwMode->blueBits);
-    glfwWindowHint(GLFW_REFRESH_RATE, glfwMode->refreshRate);
+//    glfwWindowHint(GLFW_RED_BITS, glfwMode->redBits);
+//    glfwWindowHint(GLFW_GREEN_BITS, glfwMode->greenBits);
+//    glfwWindowHint(GLFW_BLUE_BITS, glfwMode->blueBits);
+//    glfwWindowHint(GLFW_REFRESH_RATE, glfwMode->refreshRate);
 
-    WIDTH = glfwMode->width;
-    HEIGHT = glfwMode->height;
+//    WIDTH = glfwMode->width;
+//    HEIGHT = glfwMode->height;
 
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", glMonitor, NULL);
-//    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", nullptr, nullptr);
+//    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", glMonitor, NULL);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", nullptr, nullptr);
     glfwMakeContextCurrent(window);
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
