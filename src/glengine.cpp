@@ -5,11 +5,11 @@
 #include "shader.h"
 #include "camera.h"
 #include "model.h"
-#include "shapeobject.h"
-#include "textureobject.h"
-#include "lightobject.h"
+#include "shape.h"
+#include "texture.h"
+#include "light.h"
 #include "cubemap.h"
-#include "materialobject.h"
+#include "material.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -111,11 +111,36 @@ glm::vec3 lightPointColor2 = glm::vec3(1.0f);
 glm::vec3 lightPointColor3 = glm::vec3(1.0f);
 glm::vec3 lightDirectionalColor1 = glm::vec3(1.0f);
 
-vector<const char*> cubeFaces;
+std::vector<const char*> cubeFaces;
 std::vector<glm::vec3> ssaoKernel;
 std::vector<glm::vec3> ssaoNoise;
 
 Camera camera(glm::vec3(0.0f, 0.0f, 4.0f));
+
+Model shaderballModel;
+
+Texture ironAlbedo;
+Texture ironNormal;
+Texture ironRoughness;
+Texture ironMetalness;
+Texture ironAO;
+
+Shader gBufferShader;
+Shader velocityShader;
+Shader lampShader;
+Shader pointBRDFShader;
+Shader directionalBRDFShader;
+Shader cubemapShader;
+Shader ssaoShader;
+Shader ssaoBlurShader;
+Shader testPostprocessShader;
+
+Light lightPoint1;
+Light lightPoint2;
+Light lightPoint3;
+Light lightDirectional1;
+
+CubeMap cubemapEnv;
 
 
 int main(int argc, char* argv[])
@@ -127,8 +152,8 @@ int main(int argc, char* argv[])
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-//    GLFWmonitor* glMonitor = glfwGetPrimaryMonitor();
-//    const GLFWvidmode* glfwMode = glfwGetVideoMode(glMonitor);
+//    GLFWmonitor* glfwMonitor = glfwGetPrimaryMonitor();
+//    const GLFWvidmode* glfwMode = glfwGetVideoMode(glfwMonitor);
 
 //    glfwWindowHint(GLFW_RED_BITS, glfwMode->redBits);
 //    glfwWindowHint(GLFW_GREEN_BITS, glfwMode->greenBits);
@@ -138,7 +163,7 @@ int main(int argc, char* argv[])
 //    WIDTH = glfwMode->width;
 //    HEIGHT = glfwMode->height;
 
-//    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", glMonitor, NULL);
+//    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", glfwMonitor, NULL);
     GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", nullptr, nullptr);
     glfwMakeContextCurrent(window);
 
@@ -162,37 +187,22 @@ int main(int argc, char* argv[])
     //---------
     // Model(s)
     //---------
-    Model shaderballModel("resources/models/shaderball/shaderball.obj");
+    shaderballModel.loadModel("resources/models/shaderball/shaderball.obj");
 
 
-    //---------
+    //-----------
     // Textures(s)
-    //---------
-    TextureObject ironAlbedo("resources/textures/pbr/rustediron/rustediron_albedo.png", "texAlbedo");
-    TextureObject ironNormal("resources/textures/pbr/rustediron/rustediron_normal.png", "texNormal");
-    TextureObject ironRoughness("resources/textures/pbr/rustediron/rustediron_roughness.png", "texRoughness");
-    TextureObject ironMetalness("resources/textures/pbr/rustediron/rustediron_metalness.png", "texMetalness");
-    TextureObject ironAO("resources/textures/pbr/rustediron/rustediron_ao.png", "texAO");
-
-//    TextureObject aluminiumAlbedo("resources/textures/pbr/aluminium/aluminium_albedo.png", "texAlbedo");
-//    TextureObject aluminiumNormal("resources/textures/pbr/aluminium/aluminium_normal.png", "texNormal");
-//    TextureObject aluminiumRoughness("resources/textures/pbr/aluminium/aluminium_roughness.png", "texRoughness");
-//    TextureObject aluminiumMetalness("resources/textures/pbr/aluminium/aluminium_metalness.png", "texMetalness");
-
-//    TextureObject goldAlbedo("resources/textures/pbr/gold/gold_albedo2.png", "texAlbedo");
-//    TextureObject goldNormal("resources/textures/pbr/gold/gold_normal.png", "texNormal");
-//    TextureObject goldRoughness("resources/textures/pbr/gold/gold_roughness.png", "texRoughness");
-//    TextureObject goldMetalness("resources/textures/pbr/gold/gold_metalness.png", "texMetalness");
-
-//    TextureObject woodfloorAlbedo("resources/textures/pbr/woodfloor/woodfloor_albedo.png", "texAlbedo");
-//    TextureObject woodfloorNormal("resources/textures/pbr/woodfloor/woodfloor_normal.png", "texNormal");
-//    TextureObject woodfloorRoughness("resources/textures/pbr/woodfloor/woodfloor_roughness.png", "texRoughness");
-//    TextureObject woodfloorMetalness("resources/textures/pbr/woodfloor/woodfloor_metalness.png", "texMetalness");
+    //-----------
+    ironAlbedo.setTexture("resources/textures/pbr/rustediron/rustediron_albedo.png", "ironAlbedo");
+    ironNormal.setTexture("resources/textures/pbr/rustediron/rustediron_normal.png", "ironNormal");
+    ironRoughness.setTexture("resources/textures/pbr/rustediron/rustediron_roughness.png", "ironRoughness");
+    ironMetalness.setTexture("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness");
+    ironAO.setTexture("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO");
 
 
-    //----------
+    //-----------
     // Material(s)
-    //----------
+    //-----------
 //    MaterialObject pbrMat;
 //    pbrMat.addTexture("texAlbedo", ironAlbedo);
 //    pbrMat.addTexture("texRoughness", ironRoughness);
@@ -203,20 +213,21 @@ int main(int argc, char* argv[])
 //    pbrMat.addTexture("texMetalness", TextureObject ("resources/textures/pbr/rustediron/rustediron_metalness.png", "texMetalness"));
 //    pbrMat.addTexture("texAO", TextureObject ("resources/textures/pbr/rustediron/rustediron_ao.png", "texAO"));
 
+
     //----------
     // Shader(s)
     //----------
-    Shader gBufferShader("resources/shaders/gBuffer.vert", "resources/shaders/gBuffer.frag");
-    Shader velocityShader("resources/shaders/velocity.vert", "resources/shaders/velocity.frag");
+    gBufferShader.setShader("resources/shaders/gBuffer.vert", "resources/shaders/gBuffer.frag");
+    velocityShader.setShader("resources/shaders/velocity.vert", "resources/shaders/velocity.frag");
 
-    Shader lampShader("resources/shaders/lighting/lamp.vert", "resources/shaders/lighting/lamp.frag");
-    Shader pointBRDFShader("resources/shaders/lighting/pointBRDF.vert", "resources/shaders/lighting/pointBRDF.frag");
-    Shader directionalBRDFShader("resources/shaders/lighting/directionalBRDF.vert", "resources/shaders/lighting/directionalBRDF.frag");
-    Shader cubemapShader("resources/shaders/lighting/cubemap.vert", "resources/shaders/lighting/cubemap.frag");
+    lampShader.setShader("resources/shaders/lighting/lamp.vert", "resources/shaders/lighting/lamp.frag");
+    pointBRDFShader.setShader("resources/shaders/lighting/pointBRDF.vert", "resources/shaders/lighting/pointBRDF.frag");
+    directionalBRDFShader.setShader("resources/shaders/lighting/directionalBRDF.vert", "resources/shaders/lighting/directionalBRDF.frag");
+    cubemapShader.setShader("resources/shaders/lighting/cubemap.vert", "resources/shaders/lighting/cubemap.frag");
 
-    Shader ssaoShader("resources/shaders/postprocess/ssao.vert", "resources/shaders/postprocess/ssao.frag");
-    Shader ssaoBlurShader("resources/shaders/postprocess/ssao.vert", "resources/shaders/postprocess/ssaoBlur.frag");
-    Shader testPostprocessShader("resources/shaders/postprocess/postprocess.vert", "resources/shaders/postprocess/testPostprocess.frag");
+    ssaoShader.setShader("resources/shaders/postprocess/ssao.vert", "resources/shaders/postprocess/ssao.frag");
+    ssaoBlurShader.setShader("resources/shaders/postprocess/ssao.vert", "resources/shaders/postprocess/ssaoBlur.frag");
+    testPostprocessShader.setShader("resources/shaders/postprocess/postprocess.vert", "resources/shaders/postprocess/testPostprocess.frag");
 
 
     //---------------
@@ -228,11 +239,11 @@ int main(int argc, char* argv[])
     //----------------
     // Light source(s)
     //----------------
-    LightObject lightPoint1(lightPointPosition1, glm::vec4(lightPointColor1, 1.0f), lightPointRadius1, true);
-    LightObject lightPoint2(lightPointPosition2, glm::vec4(lightPointColor2, 1.0f), lightPointRadius2, true);
-    LightObject lightPoint3(lightPointPosition3, glm::vec4(lightPointColor3, 1.0f), lightPointRadius3, true);
+    lightPoint1.setLight(lightPointPosition1, glm::vec4(lightPointColor1, 1.0f), lightPointRadius1, true);
+    lightPoint2.setLight(lightPointPosition2, glm::vec4(lightPointColor2, 1.0f), lightPointRadius2, true);
+    lightPoint3.setLight(lightPointPosition3, glm::vec4(lightPointColor3, 1.0f), lightPointRadius3, true);
 
-    LightObject lightDirectional1(glm::vec3(-0.2f, -1.0f, -0.3f), glm::vec4(lightDirectionalColor1, 1.0f));
+    lightDirectional1.setLight(glm::vec3(-0.2f, -1.0f, -0.3f), glm::vec4(lightDirectionalColor1, 1.0f));
 
 
     //-------
@@ -259,13 +270,13 @@ int main(int argc, char* argv[])
 //    cubeFaces.push_back("resources/textures/cubemaps/yokoD/back.jpg");
 //    cubeFaces.push_back("resources/textures/cubemaps/yokoD/front.jpg");
 
-    CubeMap cubemapEnv(cubeFaces);
+    cubemapEnv.setCubeMap(cubeFaces);
 
 
     //---------------------------------------
     // Set the samplers for the lighting pass
     //---------------------------------------
-    pointBRDFShader.Use();
+    pointBRDFShader.useShader();
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gPosition"), 0);
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gNormal"), 1);
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gAlbedo"), 2);
@@ -274,7 +285,7 @@ int main(int argc, char* argv[])
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gAO"), 5);
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "ssao"), 6);
 
-    directionalBRDFShader.Use();
+    directionalBRDFShader.useShader();
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gPosition"), 0);
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gNormal"), 1);
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gAlbedo"), 2);
@@ -283,7 +294,7 @@ int main(int argc, char* argv[])
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gAO"), 5);
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "ssao"), 6);
 
-    ssaoShader.Use();
+    ssaoShader.useShader();
     glUniform1i(glGetUniformLocation(ssaoShader.Program, "gPosition"), 0);
     glUniform1i(glGetUniformLocation(ssaoShader.Program, "gNormal"), 1);
     glUniform1i(glGetUniformLocation(ssaoShader.Program, "texNoise"), 2);
@@ -364,7 +375,7 @@ int main(int argc, char* argv[])
         glm::mat4 model;
 
         // Model(s) rendering
-        gBufferShader.Use();
+        gBufferShader.useShader();
 
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
@@ -395,7 +406,7 @@ int main(int argc, char* argv[])
         ironAO.Bind();
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "texAO"), 3);
 
-        shaderballModel.Draw(gBufferShader);
+        shaderballModel.Draw();
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glQueryCounter(queryIDGeometry[1], GL_TIMESTAMP);
@@ -409,7 +420,7 @@ int main(int argc, char* argv[])
         glClear(GL_COLOR_BUFFER_BIT);
 
         // SSAO texture
-        ssaoShader.Use();
+        ssaoShader.useShader();
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gPosition);
@@ -438,7 +449,7 @@ int main(int argc, char* argv[])
         glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        ssaoBlurShader.Use();
+        ssaoBlurShader.useShader();
 
         glUniform1i(glGetUniformLocation(ssaoBlurShader.Program, "ssaoBlurSize"), ssaoBlurSize);
         glActiveTexture(GL_TEXTURE0);
@@ -456,7 +467,7 @@ int main(int argc, char* argv[])
         glQueryCounter(queryIDLighting[0], GL_TIMESTAMP);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        pointBRDFShader.Use();
+        pointBRDFShader.useShader();
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gPosition);
@@ -484,9 +495,9 @@ int main(int argc, char* argv[])
         lightPoint2.setLightRadius(lightPointRadius2);
         lightPoint3.setLightRadius(lightPointRadius3);
 
-        for(int i = 0; i < LightObject::lightPointList.size(); i++)
+        for(int i = 0; i < Light::lightPointList.size(); i++)
         {
-            LightObject::lightPointList[i].renderToShader(pointBRDFShader, camera);
+            Light::lightPointList[i].renderToShader(pointBRDFShader, camera);
         }
 
         glUniform3f(glGetUniformLocation(pointBRDFShader.Program, "viewPos"), camera.cameraPosition.x, camera.cameraPosition.y, camera.cameraPosition.z);
@@ -497,7 +508,7 @@ int main(int argc, char* argv[])
         glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gBufferView"), gBufferView);
 
 //        // Directional light(s) rendering
-//        directionalBRDFShader.Use();
+//        directionalBRDFShader.useShader();
 
 //        glActiveTexture(GL_TEXTURE0);
 //        glBindTexture(GL_TEXTURE_2D, gPosition);
@@ -516,9 +527,9 @@ int main(int argc, char* argv[])
 
 //        lightDirectional1.setLightColor(glm::vec4(lightDirectionalColor1, 1.0f));
 
-//        for(int i = 0; i < LightObject::lightDirectionalList.size(); i++)
+//        for(int i = 0; i < Light::lightDirectionalList.size(); i++)
 //        {
-//            LightObject::lightDirectionalList[i].renderToShader(directionalBRDFShader, camera);
+//            Light::lightDirectionalList[i].renderToShader(directionalBRDFShader, camera);
 //        }
 
 //        glUniform3f(glGetUniformLocation(directionalBRDFShader.Program, "viewPos"), camera.cameraPosition.x, camera.cameraPosition.y, camera.cameraPosition.z);
@@ -541,7 +552,7 @@ int main(int argc, char* argv[])
         // Post-processing Pass rendering
         //-------------------------------
 //        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-//        testPostprocessShader.Use();
+//        testPostprocessShader.useShader();
 //        gBufferQuad();
 
 
@@ -557,16 +568,16 @@ int main(int argc, char* argv[])
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // Shape(s) rendering
-        lampShader.Use();
+        lampShader.useShader();
         glUniformMatrix4fv(glGetUniformLocation(lampShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glUniformMatrix4fv(glGetUniformLocation(lampShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
 
-        for(int i = 0; i < LightObject::lightPointList.size(); i++)
+        for(int i = 0; i < Light::lightPointList.size(); i++)
         {
-            glUniform4f(glGetUniformLocation(lampShader.Program, "lightColor"), LightObject::lightPointList[i].getLightColor().r, LightObject::lightPointList[i].getLightColor().g, LightObject::lightPointList[i].getLightColor().b, LightObject::lightPointList[i].getLightColor().a);
+            glUniform4f(glGetUniformLocation(lampShader.Program, "lightColor"), Light::lightPointList[i].getLightColor().r, Light::lightPointList[i].getLightColor().g, Light::lightPointList[i].getLightColor().b, Light::lightPointList[i].getLightColor().a);
 
-            if(LightObject::lightPointList[i].isMesh())
-                LightObject::lightPointList[i].lightMesh.drawShape(lampShader, view, projection, camera);
+            if(Light::lightPointList[i].isMesh())
+                Light::lightPointList[i].lightMesh.drawShape(lampShader, view, projection, camera);
         }
         glQueryCounter(queryIDForward[1], GL_TIMESTAMP);
 
@@ -944,12 +955,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     {
         screenMode = !screenMode;
 
-//        GLFWwindow* newWindow = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", screenMode ? glfwGetPrimaryMonitor() : nullptr, window);
-//        GLFWwindow* newWindow = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", glfwGetPrimaryMonitor(), window);
-//        glfwDestroyWindow(window);
-//        GLFWwindow* window = newWindow;
 
-//        glfwMakeContextCurrent(window);
     }
 
     if (keys[GLFW_KEY_1])
