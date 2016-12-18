@@ -24,7 +24,7 @@ class Material
         ~Material();
         void addTexture(std::string uniformName, Texture texObj);
         void setShader(Shader& shader);
-        void renderToShader(Shader& matShader);
+        void renderToShader();
 };
 
 #endif

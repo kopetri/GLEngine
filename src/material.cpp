@@ -18,6 +18,12 @@ Material::Material()
 }
 
 
+Material::~Material()
+{
+
+}
+
+
 void Material::addTexture(std::string uniformName, Texture texObj)
 {
     texList.push_back(std::tuple<std::string, Texture>(uniformName, texObj));
@@ -26,20 +32,20 @@ void Material::addTexture(std::string uniformName, Texture texObj)
 
 void Material::setShader(Shader& shader)
 {
-//    this->matShader = shader;
+    this->matShader = shader;
 }
 
 
-void Material::renderToShader(Shader& matShader)
+void Material::renderToShader()
 {
-    matShader.useShader();
+    this->matShader.useShader();
 
-    std::cout << "texList Size : " << texList.size() << std::endl;
+    std::cout << "texList Size : " << this->texList.size() << std::endl;
 
-    for(GLuint i = 0; i < texList.size(); i++)
+    for(GLuint i = 0; i < this->texList.size(); i++)
     {
-        std::string currentUniformName = std::get<0>(texList[i]);
-        Texture currentTex = std::get<1>(texList[i]);
+        std::string currentUniformName = std::get<0>(this->texList[i]);
+        Texture currentTex = std::get<1>(this->texList[i]);
 
         std::cout << "i : " << i << std::endl;
         std::cout << "texWidth : " << currentTex.getTexWidth() << std::endl;
@@ -48,8 +54,10 @@ void Material::renderToShader(Shader& matShader)
         std::cout << "ActiveTexture sent : " << GL_TEXTURE0 + i << std::endl;
 
         glActiveTexture(GL_TEXTURE0 + i);
-        currentTex.Bind();
-        glUniform1i(glGetUniformLocation(matShader.Program, currentUniformName.c_str()), i);
+        currentTex.useTexture();
+        glUniform1i(glGetUniformLocation(this->matShader.Program, currentUniformName.c_str()), i);
+
+        std::cout << "------" << std::endl;
     }
 
     std::cout << "============" << std::endl;

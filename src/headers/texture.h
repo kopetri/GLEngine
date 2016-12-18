@@ -23,7 +23,7 @@ class Texture
         GLuint getTexWidth();
         GLuint getTexHeight();
         std::string getTexName();
-        void Bind();
+        void useTexture();
 };
 
 #endif

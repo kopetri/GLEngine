@@ -34,7 +34,6 @@ Features
 
 * Models/Meshes :
     * External models loading (.obj)
-    * Textures support
     * **TODO :** PBR material pipeline compliant
     * **TODO :** Revamp & debug to support kinda buggy models
 
@@ -62,7 +61,6 @@ Features
     * Phong
     * Cook-Torrance BRDF
     * Deferred Rendering
-    * **TODO :** Blinn-Phong
     * **TODO :** Shadow-mapping (PCF/Variance)
     * **TODO :** Tiled Deferred Rendering (Compute shaders ?)
 
@@ -73,13 +71,14 @@ Features
         * Fresnel term : Schlick
         * Microfacet distribution : GGX
         * Geometry attenuation : GGX-Smith
+    * Tonemapping (Reinhard)
     * Material pipeline using a roughness/metalness workflow
     * **TODO :** Image-Based Lighting
 
 * Post-processing :
 	* SSAO
+    * FXAA
 	* **TODO :** Motion Blur (camera/per-fragment)
-	* **TODO :** PPAA (FXAA...)
 	* **TODO :** Bloom
 	* **TODO :** Depth of Field
 	* **TODO :** Screen-Space Reflections
@@ -123,4 +122,3 @@ Credits
 ------
 - Joey de Vries (LearnOpenGL)
 - Kevin Fung (Glitter)
-

@@ -84,7 +84,7 @@ std::string Texture::getTexName()
 }
 
 
-void Texture::Bind()
+void Texture::useTexture()
 {
     glBindTexture(GL_TEXTURE_2D, texID);
 }
