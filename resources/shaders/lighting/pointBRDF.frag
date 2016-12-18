@@ -117,7 +117,7 @@ void main()
         specular = (F * D * G) / (4 * NdotL * NdotV + 0.0001f);
 
 
-        color += (diffuse * kDisney * kD + specular * kS) * kRadiance * NdotL * ssao;
+        color += (diffuse * kDisney * kD + specular) * kRadiance * NdotL * ssao;
     }
 
     color += ambient;

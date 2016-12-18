@@ -390,7 +390,7 @@ int main(int argc, char* argv[])
         GLfloat rotationAngle = glfwGetTime()/5.0f * 5.0f;
         model = glm::mat4();
         model = glm::translate(model, glm::vec3(0.0f));
-        model = glm::rotate(model, 0.0f, glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::rotate(model, rotationAngle, glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::scale(model, glm::vec3(0.1f, 0.1f, 0.1f));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "modelViewProj"), 1, GL_FALSE, glm::value_ptr(model * view * projection));
