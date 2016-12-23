@@ -20,7 +20,11 @@ else()
     endif()
 endif()
 
-include_directories(src/headers/
+include_directories(src/camera/
+                    src/lighting/
+                    src/mesh/
+                    src/renderer/
+                    src/resources/
                     api/assimp/include/
                     api/glad/include/
                     api/glfw/include/
@@ -31,9 +35,18 @@ include_directories(src/headers/
 file(GLOB API_SOURCES api/glad/src/glad.c
 					  api/imgui/*.cpp)
 
-file(GLOB PROJECT_HEADERS src/headers/*.hpp
-                          src/headers/*.h)
-file(GLOB PROJECT_SOURCES src/*.cpp)
+file(GLOB PROJECT_HEADERS src/camera/*.h
+                          src/lighting/*.h
+                          src/mesh/*.h
+                          src/renderer/*.h
+                          src/resources/*.h)
+
+file(GLOB PROJECT_SOURCES src/camera/*.cpp
+                          src/lighting/*.cpp
+                          src/mesh/*.cpp
+                          src/renderer/*.cpp
+                          src/resources/*.cpp)
+
 file(GLOB PROJECT_SHADERS resources/shaders/*.glsl
                           resources/shaders/*.frag
                           resources/shaders/*.vert
@@ -43,6 +56,7 @@ file(GLOB PROJECT_SHADERS resources/shaders/*.glsl
                           resources/shaders/postprocess/*.glsl
                           resources/shaders/postprocess/*.frag
                           resources/shaders/postprocess/*.vert)
+
 file(GLOB PROJECT_CONFIGS CMakeLists.txt
                           Readme.md
                          .gitattributes

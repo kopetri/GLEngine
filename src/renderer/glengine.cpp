@@ -127,7 +127,6 @@ Shader directionalBRDFShader;
 Shader cubemapShader;
 Shader ssaoShader;
 Shader ssaoBlurShader;
-Shader sharpeningShader;
 Shader fxaaShader;
 
 Texture ironAlbedo;
@@ -208,11 +207,11 @@ int main(int argc, char* argv[])
     //-----------
     // Textures(s)
     //-----------
-    ironAlbedo.setTexture("resources/textures/pbr/rustediron/rustediron_albedo.png", "ironAlbedo");
-    ironNormal.setTexture("resources/textures/pbr/rustediron/rustediron_normal.png", "ironNormal");
-    ironRoughness.setTexture("resources/textures/pbr/rustediron/rustediron_roughness.png", "ironRoughness");
-    ironMetalness.setTexture("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness");
-    ironAO.setTexture("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO");
+    ironAlbedo.setTexture("resources/textures/pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true);
+    ironNormal.setTexture("resources/textures/pbr/rustediron/rustediron_normal.png", "ironNormal", true);
+    ironRoughness.setTexture("resources/textures/pbr/rustediron/rustediron_roughness.png", "ironRoughness", true);
+    ironMetalness.setTexture("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
+    ironAO.setTexture("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO", true);
 
 
     //-----------
@@ -223,10 +222,10 @@ int main(int argc, char* argv[])
 //    pbrMat.addTexture("texRoughness", ironRoughness);
 //    pbrMat.addTexture("texMetalness", ironMetalness);
 //    pbrMat.addTexture("texAO", ironAO);
-//    pbrMat.addTexture("texAlbedo", TextureObject ("resources/textures/pbr/rustediron/rustediron_albedo.png", "texAlbedo"));
-//    pbrMat.addTexture("texRoughness", TextureObject ("resources/textures/pbr/rustediron/rustediron_roughness.png", "texRoughness"));
-//    pbrMat.addTexture("texMetalness", TextureObject ("resources/textures/pbr/rustediron/rustediron_metalness.png", "texMetalness"));
-//    pbrMat.addTexture("texAO", TextureObject ("resources/textures/pbr/rustediron/rustediron_ao.png", "texAO"));
+//    pbrMat.addTexture("texAlbedo", TextureObject ("resources/textures/pbr/rustediron/rustediron_albedo.png", "texAlbedo", true));
+//    pbrMat.addTexture("texRoughness", TextureObject ("resources/textures/pbr/rustediron/rustediron_roughness.png", "texRoughness", true));
+//    pbrMat.addTexture("texMetalness", TextureObject ("resources/textures/pbr/rustediron/rustediron_metalness.png", "texMetalness", true));
+//    pbrMat.addTexture("texAO", TextureObject ("resources/textures/pbr/rustediron/rustediron_ao.png", "texAO", true));
 
 
     //---------
@@ -260,20 +259,6 @@ int main(int argc, char* argv[])
     cubeFaces.push_back("resources/textures/cubemaps/lake/bottom.jpg");
     cubeFaces.push_back("resources/textures/cubemaps/lake/back.jpg");
     cubeFaces.push_back("resources/textures/cubemaps/lake/front.jpg");
-
-//    cubeFaces.push_back("resources/textures/cubemaps/yokoN/right.jpg");
-//    cubeFaces.push_back("resources/textures/cubemaps/yokoN/left.jpg");
-//    cubeFaces.push_back("resources/textures/cubemaps/yokoN/top.jpg");
-//    cubeFaces.push_back("resources/textures/cubemaps/yokoN/bottom.jpg");
-//    cubeFaces.push_back("resources/textures/cubemaps/yokoN/back.jpg");
-//    cubeFaces.push_back("resources/textures/cubemaps/yokoN/front.jpg");
-
-//    cubeFaces.push_back("resources/textures/cubemaps/yokoD/right.jpg");
-//    cubeFaces.push_back("resources/textures/cubemaps/yokoD/left.jpg");
-//    cubeFaces.push_back("resources/textures/cubemaps/yokoD/top.jpg");
-//    cubeFaces.push_back("resources/textures/cubemaps/yokoD/bottom.jpg");
-//    cubeFaces.push_back("resources/textures/cubemaps/yokoD/back.jpg");
-//    cubeFaces.push_back("resources/textures/cubemaps/yokoD/front.jpg");
 
     cubemapEnv.setCubeMap(cubeFaces);
 

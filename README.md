@@ -20,8 +20,8 @@ Features
 * Textures :
     * Init/loading/binding from anywhere
 	* Anisotropic Filtering
-	* **TODO :** HDR
-	* **TODO :** Cubemap
+    * HDR
+    * Cubemap
 
 * Material :
 	* PBR material pipeline :

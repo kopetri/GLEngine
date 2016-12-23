@@ -12,14 +12,17 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "shader.h"
 #include "camera.h"
+#include "shader.h"
+#include "texture.h"
+#include "shape.h"
 
 
 class CubeMap
 {
     public:
-        GLuint cubemapTextureID, cubemapVAO, cubemapVBO;
+        Texture texCubemap;
+        Shape shapeCubemap;
 
         CubeMap();
         ~CubeMap();

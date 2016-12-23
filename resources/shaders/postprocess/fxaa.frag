@@ -7,8 +7,7 @@ uniform sampler2D screenTexture;
 uniform vec2 screenTextureSize;
 
 float FXAA_SPAN_MAX = 8.0f;
-float FXAA_REDUCE_MUL = 0.0f;
-//float FXAA_REDUCE_MUL = 1.0f/8.0f;
+float FXAA_REDUCE_MUL = 1.0f/8.0f;
 float FXAA_REDUCE_MIN = 1.0f/128.0f;
 
 
