@@ -40,6 +40,7 @@ void Texture::setTexture(const char* texPath, std::string texName, bool texFlip)
 
     int width, height, numComponents;
     unsigned char* texData = stbi_load(tempPath.c_str(), &width, &height, &numComponents, 0);
+
     this->texWidth = width;
     this->texHeight = height;
     this->texComponents = numComponents;
@@ -67,7 +68,7 @@ void Texture::setTexture(const char* texPath, std::string texName, bool texFlip)
 
     else
     {
-        std::cerr << "TEXTURE FAILED LOADING : " << texPath << std::endl;
+        std::cerr << "TEXTURE FAILED - LOADING : " << texPath << std::endl;
     }
 
     stbi_image_free(texData);
@@ -91,43 +92,53 @@ void Texture::setTextureHDR(const char* texPath, std::string texName, bool texFl
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, this->texID);
 
-    int width, height, numComponents;
-    unsigned char* texData = stbi_load(tempPath.c_str(), &width, &height, &numComponents, 0);
-    this->texWidth = width;
-    this->texHeight = height;
-    this->texComponents = numComponents;
-    this->texName = texName;
-
-    if (texData)
+    if(stbi_is_hdr(tempPath.c_str()))
     {
-        // Need a higher precision format for HDR to not lose informations, thus 32bits floating point
-        if (numComponents == 3)
+        int width, height, numComponents;
+        float* texData = stbi_loadf(tempPath.c_str(), &width, &height, &numComponents, 0);
+
+        this->texWidth = width;
+        this->texHeight = height;
+        this->texComponents = numComponents;
+        this->texName = texName;
+
+        if (texData)
         {
-            this->texInternalFormat = GL_RGB32F;
-            this->texFormat = GL_RGB;
+            // Need a higher precision format for HDR to not lose informations, thus 32bits floating point
+            if (numComponents == 3)
+            {
+                this->texInternalFormat = GL_RGB32F;
+                this->texFormat = GL_RGB;
+            }
+            else if (numComponents == 4)
+            {
+                this->texInternalFormat = GL_RGBA32F;
+                this->texFormat = GL_RGBA;
+            }
+
+            glTexImage2D(GL_TEXTURE_2D, 0, this->texInternalFormat, this->texWidth, this->texHeight, 0, this->texFormat, GL_UNSIGNED_BYTE, texData);
+
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+            glGenerateMipmap(GL_TEXTURE_2D);
         }
-        else if (numComponents == 4)
+
+        else
         {
-            this->texInternalFormat = GL_RGBA32F;
-            this->texFormat = GL_RGBA;
+            std::cerr << "HDR TEXTURE - FAILED LOADING : " << texPath << std::endl;
         }
 
-        glTexImage2D(GL_TEXTURE_2D, 0, this->texInternalFormat, this->texWidth, this->texHeight, 0, this->texFormat, GL_UNSIGNED_BYTE, texData);
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        glGenerateMipmap(GL_TEXTURE_2D);
+        stbi_image_free(texData);
     }
 
     else
     {
-        std::cerr << "HDR TEXTURE FAILED LOADING : " << texPath << std::endl;
+        std::cerr << "HDR TEXTURE - FILE IS NOT HDR : " << texPath << std::endl;
     }
 
-    stbi_image_free(texData);
 
     glBindTexture(GL_TEXTURE_2D, 0);
 }
@@ -176,8 +187,9 @@ void Texture::setTextureCube(std::vector<const char*>& faces, bool texFlip)
                 this->texFormat = GL_RGB;
             else if (numComponents == 4)
                 this->texFormat = GL_RGBA;
+            this->texInternalFormat = this->texFormat;
 
-            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, this->texFormat, this->texWidth, this->texHeight, 0, this->texFormat, GL_UNSIGNED_BYTE, texData);
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, this->texInternalFormat, this->texWidth, this->texHeight, 0, this->texFormat, GL_UNSIGNED_BYTE, texData);
 
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -189,7 +201,7 @@ void Texture::setTextureCube(std::vector<const char*>& faces, bool texFlip)
 
         else
         {
-            std::cerr << "CUBEMAP TEXTURE FAILED LOADING : " << cubemapFaces[i] << std::endl;
+            std::cerr << "CUBEMAP TEXTURE - FAILED LOADING : " << cubemapFaces[i] << std::endl;
         }
 
         stbi_image_free(texData);
