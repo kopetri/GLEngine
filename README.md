@@ -15,7 +15,11 @@ Features
 * Camera :
     * Movements
     * Zoom in/out
-    * **TODO :** Support of physically based camera (exposure, distortion...)
+    * Exposure :
+        * Aperture
+        * Shutter speed
+        * ISO
+    * **TODO :** Other physically based camera parameters
 
 * Textures :
     * Init/loading/binding from anywhere
@@ -87,8 +91,10 @@ Features
 
 * Environment Mapping :
     * 6-faced cubemap generation
+    * Equirectangular/spherical maps
+    * HDR
+    * **TODO :** Screen quad based
     * **TODO :** Deferred Rendering compliant
-    * **TODO :** Equirectangular HDR maps
  
 * Utility :
     * GUI using ImGui

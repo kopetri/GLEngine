@@ -93,6 +93,10 @@ GLfloat ssaoBias = 0.025f;
 GLfloat lightPointRadius1 = 3.0f;
 GLfloat lightPointRadius2 = 3.0f;
 GLfloat lightPointRadius3 = 3.0f;
+GLfloat cameraAperture = 16.0f;
+GLfloat cameraShutterSpeed = 0.5f;
+GLfloat cameraISO = 1000.0f;
+
 
 bool cameraMode;
 bool fxaaMode = false;
@@ -103,8 +107,8 @@ bool keys[1024];
 
 glm::vec3 albedoColor = glm::vec3(1.0f);
 //glm::vec3 materialF0 = glm::vec3(1.0f, 0.72f, 0.29f);  // Gold
-glm::vec3 materialF0 = glm::vec3(0.56f, 0.57f, 0.58f);  // Iron
-//glm::vec3 materialF0 = glm::vec3(0.04f);  // UE4 dielectric
+//glm::vec3 materialF0 = glm::vec3(0.56f, 0.57f, 0.58f);  // Iron
+glm::vec3 materialF0 = glm::vec3(0.04f);  // UE4 dielectric
 glm::vec3 lightPointPosition1 = glm::vec3(1.5f, 0.75f, 1.0f);
 glm::vec3 lightPointPosition2 = glm::vec3(-1.5f, 1.0f, 1.0f);
 glm::vec3 lightPointPosition3 = glm::vec3(0.0f, 0.75f, -1.2f);
@@ -127,7 +131,7 @@ Shader directionalBRDFShader;
 Shader cubemapShader;
 Shader ssaoShader;
 Shader ssaoBlurShader;
-Shader fxaaShader;
+Shader postprocessShader;
 
 Texture ironAlbedo;
 Texture ironNormal;
@@ -201,7 +205,7 @@ int main(int argc, char* argv[])
 
     ssaoShader.setShader("resources/shaders/postprocess/ssao.vert", "resources/shaders/postprocess/ssao.frag");
     ssaoBlurShader.setShader("resources/shaders/postprocess/ssao.vert", "resources/shaders/postprocess/ssaoBlur.frag");
-    fxaaShader.setShader("resources/shaders/postprocess/postprocess.vert", "resources/shaders/postprocess/fxaa.frag");
+    postprocessShader.setShader("resources/shaders/postprocess/postprocess.vert", "resources/shaders/postprocess/firstpass.frag");
 
 
     //-----------
@@ -253,14 +257,7 @@ int main(int argc, char* argv[])
     //-------
     //Cubemap
     //-------
-    cubeFaces.push_back("resources/textures/cubemaps/lake/right.jpg");
-    cubeFaces.push_back("resources/textures/cubemaps/lake/left.jpg");
-    cubeFaces.push_back("resources/textures/cubemaps/lake/top.jpg");
-    cubeFaces.push_back("resources/textures/cubemaps/lake/bottom.jpg");
-    cubeFaces.push_back("resources/textures/cubemaps/lake/back.jpg");
-    cubeFaces.push_back("resources/textures/cubemaps/lake/front.jpg");
-
-    cubemapEnv.setCubeMap(cubeFaces);
+    cubemapEnv.setCubeMap("resources/textures/hdr/pisa.hdr");
 
 
     //---------------------------------------
@@ -535,11 +532,6 @@ int main(int argc, char* argv[])
         glQueryCounter(queryIDLighting[1], GL_TIMESTAMP);
 
 
-        //---------------------
-        // G-Buffer quad target
-        //---------------------
-
-
         //-------------------------------
         // Post-processing Pass rendering
         //-------------------------------
@@ -548,8 +540,8 @@ int main(int argc, char* argv[])
 
         if(fxaaMode)
         {
-            fxaaShader.useShader();
-            glUniform2f(glGetUniformLocation(fxaaShader.Program, "screenTextureSize"), 1.0f/WIDTH, 1.0f/HEIGHT);
+            postprocessShader.useShader();
+            glUniform2f(glGetUniformLocation(postprocessShader.Program, "screenTextureSize"), 1.0f/WIDTH, 1.0f/HEIGHT);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, postprocessBuffer);
         }
@@ -586,7 +578,8 @@ int main(int argc, char* argv[])
 
         // Cubemap rendering
         glQueryCounter(queryIDCubemap[0], GL_TIMESTAMP);
-        cubemapEnv.renderToShader(cubemapShader, pointBRDFShader, projection, camera);
+        cubemapEnv.setExposure(cameraAperture, cameraShutterSpeed, cameraISO);
+        cubemapEnv.renderToShader(cubemapShader, projection, camera);
         glQueryCounter(queryIDCubemap[1], GL_TIMESTAMP);
 
 
@@ -737,6 +730,15 @@ void imGuiSetup()
         if (ImGui::TreeNode("Post processing"))
         {
             ImGui::Checkbox("FXAA", &fxaaMode);
+
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNode("Camera"))
+        {
+            ImGui::SliderFloat("Aperture", &cameraAperture, 1.0f, 32.0f);
+            ImGui::SliderFloat("Shutter Speed", &cameraShutterSpeed, 0.001f, 1.0f);
+            ImGui::SliderFloat("ISO", &cameraISO, 100.0f, 3200.0f);
 
             ImGui::TreePop();
         }

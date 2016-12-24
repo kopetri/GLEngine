@@ -25,14 +25,14 @@ CubeMap::~CubeMap()
 }
 
 
-void CubeMap::setCubeMap(std::vector<const char*>& faces)
+void CubeMap::setCubeMap(const char* texPath)
 {
     this->shapeCubemap.setShape("cube", glm::vec3(0.0f, 0.0f, 0.0f));
-    this->texCubemap.setTextureCube(faces, false);
+    this->texCubemap.setTextureHDR(texPath, "cubemapHDR", true);
 }
 
 
-void CubeMap::renderToShader(Shader& shaderCubemap, Shader& shaderLighting, glm::mat4& projection, Camera& camera)
+void CubeMap::renderToShader(Shader& shaderCubemap, glm::mat4& projection, Camera& camera)
 {
     glDepthFunc(GL_LEQUAL);
 
@@ -41,7 +41,17 @@ void CubeMap::renderToShader(Shader& shaderCubemap, Shader& shaderLighting, glm:
 
     glm::mat4 view = glm::mat4(glm::mat3(camera.GetViewMatrix()));
     this->shapeCubemap.drawShape(shaderCubemap, view, projection, camera);
-    glUniform1i(glGetUniformLocation(shaderLighting.Program, "cubemap"), 0);
+    glUniform1f(glGetUniformLocation(shaderCubemap.Program, "cameraAperture"), this->cameraAperture);
+    glUniform1f(glGetUniformLocation(shaderCubemap.Program, "cameraShutterSpeed"), this->cameraShutterSpeed);
+    glUniform1f(glGetUniformLocation(shaderCubemap.Program, "cameraISO"), this->cameraISO);
 
     glDepthFunc(GL_LESS);
+}
+
+
+void CubeMap::setExposure(GLfloat aperture, GLfloat shutterSpeed, GLfloat iso)
+{
+    this->cameraAperture = aperture;
+    this->cameraShutterSpeed = shutterSpeed;
+    this->cameraISO = iso;
 }

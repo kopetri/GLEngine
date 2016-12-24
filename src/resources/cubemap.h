@@ -21,13 +21,15 @@
 class CubeMap
 {
     public:
+        GLfloat cameraAperture, cameraShutterSpeed, cameraISO;
         Texture texCubemap;
         Shape shapeCubemap;
 
         CubeMap();
         ~CubeMap();
-        void setCubeMap(std::vector<const char*>& faces);
-        void renderToShader(Shader& shaderCubemap, Shader& shaderLighting, glm::mat4& projection, Camera& camera);
+        void setCubeMap(const char* texPath);
+        void renderToShader(Shader& shaderCubemap, glm::mat4& projection, Camera& camera);
+        void setExposure(GLfloat aperture, GLfloat shutterSpeed, GLfloat iso);
 };
 
 

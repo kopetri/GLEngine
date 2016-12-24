@@ -1,14 +1,70 @@
 #version 400 core
 
 in vec3 TexCoords;
-out vec4 color;
+out vec4 colorOutput;
 
-uniform samplerCube cubemap;
+float PI  = 3.14159265359f;
+float middleGrey = 0.18f;
+
+uniform sampler2D equirectMap;
+uniform float cameraAperture;
+uniform float cameraShutterSpeed;
+uniform float cameraISO;
+
+vec2 getSphericalCoord(vec3 normalCoord);
+vec3 colorLinear(vec3 colorVector);
+vec3 colorSRGB(vec3 colorVector);
+vec3 ReinhardTM(vec3 color);
+float computeStandardOutputBasedExposure(float aperture, float shutterSpeed, float iso);
 
 
 void main()
 {
-//    color = vec4(pow(texture(cubemap, TexCoords).rgb, vec3(1.0/2.2)), 1.0f);
-    color = vec4(0.15f, 0.15f, 0.15f, 1.0f);
+    vec3 envColor = texture(equirectMap, getSphericalCoord(normalize(TexCoords))).rgb;
+
+    envColor *= computeStandardOutputBasedExposure(cameraAperture, cameraShutterSpeed, cameraISO);
+    envColor = ReinhardTM(envColor);
+
+    colorOutput = vec4(colorSRGB(envColor), 1.0f);
+//    colorOutput = vec4(0.15f, 0.15f, 0.15f, 1.0f);
 }
 
+
+
+vec2 getSphericalCoord(vec3 normalCoord)
+{
+  float phi = acos(-normalCoord.y);
+  float theta = atan(1.0f * normalCoord.x, -normalCoord.z) + PI;
+
+  return vec2(theta / (2.0f * PI), phi / PI);
+}
+
+
+vec3 colorLinear(vec3 colorVector)
+{
+  vec3 linearColor = pow(colorVector.rgb, vec3(2.2f));
+
+  return linearColor;
+}
+
+
+vec3 colorSRGB(vec3 colorVector)
+{
+  vec3 srgbColor = pow(colorVector.rgb, vec3(1.0f / 2.2f));
+
+  return srgbColor;
+}
+
+
+vec3 ReinhardTM(vec3 color)
+{
+    return color / (color + vec3(1.0f));
+}
+
+
+float computeStandardOutputBasedExposure(float aperture, float shutterSpeed, float iso)
+{
+    float lAvg = (1000.0f / 65.0f) * sqrt(aperture) / (iso * shutterSpeed);
+
+    return middleGrey / lAvg;
+}
