@@ -1,12 +1,12 @@
 #version 400 core
 
-in vec3 TexCoords;
+in vec3 envMapCoords;
 out vec4 colorOutput;
 
 float PI  = 3.14159265359f;
 float middleGrey = 0.18f;
 
-uniform sampler2D equirectMap;
+uniform sampler2D envMap;
 uniform float cameraAperture;
 uniform float cameraShutterSpeed;
 uniform float cameraISO;
@@ -15,14 +15,14 @@ vec2 getSphericalCoord(vec3 normalCoord);
 vec3 colorLinear(vec3 colorVector);
 vec3 colorSRGB(vec3 colorVector);
 vec3 ReinhardTM(vec3 color);
-float computeStandardOutputBasedExposure(float aperture, float shutterSpeed, float iso);
+float computeSOBExposure(float aperture, float shutterSpeed, float iso);
 
 
 void main()
 {
-    vec3 envColor = texture(equirectMap, getSphericalCoord(normalize(TexCoords))).rgb;
+    vec3 envColor = texture(envMap, getSphericalCoord(normalize(envMapCoords))).rgb;
 
-    envColor *= computeStandardOutputBasedExposure(cameraAperture, cameraShutterSpeed, cameraISO);
+    envColor *= computeSOBExposure(cameraAperture, cameraShutterSpeed, cameraISO);
     envColor = ReinhardTM(envColor);
 
     colorOutput = vec4(colorSRGB(envColor), 1.0f);
@@ -62,7 +62,7 @@ vec3 ReinhardTM(vec3 color)
 }
 
 
-float computeStandardOutputBasedExposure(float aperture, float shutterSpeed, float iso)
+float computeSOBExposure(float aperture, float shutterSpeed, float iso)
 {
     float lAvg = (1000.0f / 65.0f) * sqrt(aperture) / (iso * shutterSpeed);
 

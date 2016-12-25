@@ -1,5 +1,5 @@
-#ifndef CUBEMAP_H
-#define CUBEMAP_H
+#ifndef SKYBOX_H
+#define SKYBOX_H
 
 #include <string>
 #include <fstream>
@@ -18,17 +18,16 @@
 #include "shape.h"
 
 
-class CubeMap
+class Skybox
 {
     public:
         GLfloat cameraAperture, cameraShutterSpeed, cameraISO;
-        Texture texCubemap;
-        Shape shapeCubemap;
+        Texture texSkybox;
 
-        CubeMap();
-        ~CubeMap();
-        void setCubeMap(const char* texPath);
-        void renderToShader(Shader& shaderCubemap, glm::mat4& projection, Camera& camera);
+        Skybox();
+        ~Skybox();
+        void setSkyboxTexture(const char* texPath);
+        void renderToShader(Shader& shaderSkybox, glm::mat4& projection, glm::mat4& view);
         void setExposure(GLfloat aperture, GLfloat shutterSpeed, GLfloat iso);
 };
 

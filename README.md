@@ -51,6 +51,13 @@ Features
     * G-Buffer support
     * PBR material pipeline compliant
 	* **TODO :** UBOs
+
+* Skybox :
+    * 6-faced cubemap based
+    * Screenquad based
+    * Equirectangular/spherical maps
+    * HDR
+    * **TODO :** Deferred Rendering compliant
     
 * Resources Manager :
     * **TODO :** Resources (textures, shaders, models, materials...) centralization
@@ -88,13 +95,6 @@ Features
 	* **TODO :** Screen-Space Reflections
 	* **TODO :** Lens Flare
 	* **TODO :** Eye Adaptation
-
-* Environment Mapping :
-    * 6-faced cubemap generation
-    * Equirectangular/spherical maps
-    * HDR
-    * **TODO :** Screen quad based
-    * **TODO :** Deferred Rendering compliant
  
 * Utility :
     * GUI using ImGui

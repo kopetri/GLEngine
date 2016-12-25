@@ -8,7 +8,7 @@
 #include "shape.h"
 #include "texture.h"
 #include "light.h"
-#include "cubemap.h"
+#include "skybox.h"
 #include "material.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -52,7 +52,7 @@ void imGuiSetup();
 void gBufferSetup();
 void ssaoSetup();
 void postprocessSetup();
-void gBufferQuad();
+void screenQuad();
 
 GLfloat lerp(GLfloat x, GLfloat y, GLfloat a);
 
@@ -63,7 +63,7 @@ GLfloat lerp(GLfloat x, GLfloat y, GLfloat a);
 GLuint WIDTH = 1280;
 GLuint HEIGHT = 720;
 
-GLuint gBufferQuadVAO, gBufferQuadVBO;
+GLuint screenQuadVAO, screenQuadVBO;
 GLuint gBuffer, zBuffer, gPosition, gNormal, gAlbedo, gRoughness, gMetalness, gAO;
 GLuint ssaoFBO, ssaoBlurFBO, ssaoBuffer, ssaoBlurBuffer, noiseTexture;
 GLuint postprocessFBO, postprocessBuffer;
@@ -82,7 +82,7 @@ GLfloat deltaLightingTime = 0.0f;
 GLfloat deltaForwardTime = 0.0f;
 GLfloat deltaSSAOTime = 0.0f;
 GLfloat deltaPostprocessTime = 0.0f;
-GLfloat deltaCubemapTime = 0.0f;
+GLfloat deltaSkyboxTime = 0.0f;
 GLfloat deltaGUITime = 0.0f;
 GLfloat materialRoughness = 0.5f;
 GLfloat materialMetallicity = 0.0f;
@@ -106,9 +106,9 @@ bool guiIsOpen = true;
 bool keys[1024];
 
 glm::vec3 albedoColor = glm::vec3(1.0f);
-//glm::vec3 materialF0 = glm::vec3(1.0f, 0.72f, 0.29f);  // Gold
-//glm::vec3 materialF0 = glm::vec3(0.56f, 0.57f, 0.58f);  // Iron
 glm::vec3 materialF0 = glm::vec3(0.04f);  // UE4 dielectric
+//glm::vec3 materialF0 = glm::vec3(0.56f, 0.57f, 0.58f);  // Iron
+//glm::vec3 materialF0 = glm::vec3(1.0f, 0.72f, 0.29f);  // Gold
 glm::vec3 lightPointPosition1 = glm::vec3(1.5f, 0.75f, 1.0f);
 glm::vec3 lightPointPosition2 = glm::vec3(-1.5f, 1.0f, 1.0f);
 glm::vec3 lightPointPosition3 = glm::vec3(0.0f, 0.75f, -1.2f);
@@ -117,7 +117,6 @@ glm::vec3 lightPointColor2 = glm::vec3(1.0f);
 glm::vec3 lightPointColor3 = glm::vec3(1.0f);
 glm::vec3 lightDirectionalColor1 = glm::vec3(1.0f);
 
-std::vector<const char*> cubeFaces;
 std::vector<glm::vec3> ssaoKernel;
 std::vector<glm::vec3> ssaoNoise;
 
@@ -128,7 +127,7 @@ Shader velocityShader;
 Shader lampShader;
 Shader pointBRDFShader;
 Shader directionalBRDFShader;
-Shader cubemapShader;
+Shader skyboxShader;
 Shader ssaoShader;
 Shader ssaoBlurShader;
 Shader postprocessShader;
@@ -148,7 +147,7 @@ Light lightPoint2;
 Light lightPoint3;
 Light lightDirectional1;
 
-CubeMap cubemapEnv;
+Skybox skyboxEnv;
 
 
 int main(int argc, char* argv[])
@@ -201,7 +200,7 @@ int main(int argc, char* argv[])
     lampShader.setShader("resources/shaders/lighting/lamp.vert", "resources/shaders/lighting/lamp.frag");
     pointBRDFShader.setShader("resources/shaders/lighting/pointBRDF.vert", "resources/shaders/lighting/pointBRDF.frag");
     directionalBRDFShader.setShader("resources/shaders/lighting/directionalBRDF.vert", "resources/shaders/lighting/directionalBRDF.frag");
-    cubemapShader.setShader("resources/shaders/lighting/cubemap.vert", "resources/shaders/lighting/cubemap.frag");
+    skyboxShader.setShader("resources/shaders/lighting/skybox.vert", "resources/shaders/lighting/skybox.frag");
 
     ssaoShader.setShader("resources/shaders/postprocess/ssao.vert", "resources/shaders/postprocess/ssao.frag");
     ssaoBlurShader.setShader("resources/shaders/postprocess/ssao.vert", "resources/shaders/postprocess/ssaoBlur.frag");
@@ -255,9 +254,9 @@ int main(int argc, char* argv[])
 
 
     //-------
-    //Cubemap
+    // Skybox
     //-------
-    cubemapEnv.setCubeMap("resources/textures/hdr/pisa.hdr");
+    skyboxEnv.setSkyboxTexture("resources/textures/hdr/pisa.hdr");
 
 
     //---------------------------------------
@@ -312,15 +311,15 @@ int main(int argc, char* argv[])
     //------------------------------
     // Queries setting for profiling
     //------------------------------
-    GLuint64 startGeometryTime, startLightingTime, startForwardTime, startSSAOTime, startPostprocessTime, startCubemapTime, startGUITime;
-    GLuint64 stopGeometryTime, stopLightingTime, stopForwardTime, stopSSAOTime, stopPostprocessTime, stopCubemapTime, stopGUITime;
+    GLuint64 startGeometryTime, startLightingTime, startForwardTime, startSSAOTime, startPostprocessTime, startSkyboxTime, startGUITime;
+    GLuint64 stopGeometryTime, stopLightingTime, stopForwardTime, stopSSAOTime, stopPostprocessTime, stopSkyboxTime, stopGUITime;
 
     unsigned int queryIDGeometry[2];
     unsigned int queryIDLighting[2];
     unsigned int queryIDForward[2];
     unsigned int queryIDSSAO[2];
     unsigned int queryIDPostprocess[2];
-    unsigned int queryIDCubemap[2];
+    unsigned int queryIDSkybox[2];
     unsigned int queryIDGUI[2];
 
     glGenQueries(2, queryIDGeometry);
@@ -328,7 +327,7 @@ int main(int argc, char* argv[])
     glGenQueries(2, queryIDForward);
     glGenQueries(2, queryIDSSAO);
     glGenQueries(2, queryIDPostprocess);
-    glGenQueries(2, queryIDCubemap);
+    glGenQueries(2, queryIDSkybox);
     glGenQueries(2, queryIDGUI);
 
 
@@ -430,7 +429,7 @@ int main(int argc, char* argv[])
         glUniform1i(glGetUniformLocation(ssaoShader.Program, "viewportWidth"), WIDTH);
         glUniform1i(glGetUniformLocation(ssaoShader.Program, "viewportHeight"), HEIGHT);
 
-        gBufferQuad();
+        screenQuad();
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // SSAO Blur texture
@@ -443,7 +442,7 @@ int main(int argc, char* argv[])
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, ssaoBuffer);
 
-        gBufferQuad();
+        screenQuad();
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glQueryCounter(queryIDSSAO[1], GL_TIMESTAMP);
 
@@ -527,7 +526,7 @@ int main(int argc, char* argv[])
 //        glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "ambientIntensity"), ambientIntensity);
 //        glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gBufferView"), gBufferView);
 
-        gBufferQuad();
+        screenQuad();
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glQueryCounter(queryIDLighting[1], GL_TIMESTAMP);
 
@@ -546,7 +545,7 @@ int main(int argc, char* argv[])
             glBindTexture(GL_TEXTURE_2D, postprocessBuffer);
         }
 
-        gBufferQuad();
+        screenQuad();
         glQueryCounter(queryIDPostprocess[1], GL_TIMESTAMP);
 
 
@@ -576,11 +575,17 @@ int main(int argc, char* argv[])
         }
         glQueryCounter(queryIDForward[1], GL_TIMESTAMP);
 
-        // Cubemap rendering
-        glQueryCounter(queryIDCubemap[0], GL_TIMESTAMP);
-        cubemapEnv.setExposure(cameraAperture, cameraShutterSpeed, cameraISO);
-        cubemapEnv.renderToShader(cubemapShader, projection, camera);
-        glQueryCounter(queryIDCubemap[1], GL_TIMESTAMP);
+        // Skybox rendering
+        glQueryCounter(queryIDSkybox[0], GL_TIMESTAMP);
+        skyboxEnv.setExposure(cameraAperture, cameraShutterSpeed, cameraISO);
+        skyboxEnv.renderToShader(skyboxShader, projection, view);
+
+        glDepthFunc(GL_LEQUAL);
+
+        screenQuad();
+
+        glDepthFunc(GL_LESS);
+        glQueryCounter(queryIDSkybox[1], GL_TIMESTAMP);
 
 
         //----------------
@@ -599,17 +604,17 @@ int main(int argc, char* argv[])
         GLint stopForwardTimerAvailable = 0;
         GLint stopSSAOTimerAvailable = 0;
         GLint stopPostprocessTimerAvailable = 0;
-        GLint stopCubemapTimerAvailable = 0;
+        GLint stopSkyboxTimerAvailable = 0;
         GLint stopGUITimerAvailable = 0;
 
-        while (!stopGeometryTimerAvailable && !stopLightingTimerAvailable && !stopForwardTimerAvailable && !stopSSAOTimerAvailable && !stopPostprocessTimerAvailable && !stopCubemapTimerAvailable && !stopGUITimerAvailable)
+        while (!stopGeometryTimerAvailable && !stopLightingTimerAvailable && !stopForwardTimerAvailable && !stopSSAOTimerAvailable && !stopPostprocessTimerAvailable && !stopSkyboxTimerAvailable && !stopGUITimerAvailable)
         {
             glGetQueryObjectiv(queryIDGeometry[1], GL_QUERY_RESULT_AVAILABLE, &stopGeometryTimerAvailable);
             glGetQueryObjectiv(queryIDLighting[1], GL_QUERY_RESULT_AVAILABLE, &stopLightingTimerAvailable);
             glGetQueryObjectiv(queryIDForward[1], GL_QUERY_RESULT_AVAILABLE, &stopForwardTimerAvailable);
             glGetQueryObjectiv(queryIDSSAO[1], GL_QUERY_RESULT_AVAILABLE, &stopSSAOTimerAvailable);
             glGetQueryObjectiv(queryIDPostprocess[1], GL_QUERY_RESULT_AVAILABLE, &stopPostprocessTimerAvailable);
-            glGetQueryObjectiv(queryIDCubemap[1], GL_QUERY_RESULT_AVAILABLE, &stopCubemapTimerAvailable);
+            glGetQueryObjectiv(queryIDSkybox[1], GL_QUERY_RESULT_AVAILABLE, &stopSkyboxTimerAvailable);
             glGetQueryObjectiv(queryIDGUI[1], GL_QUERY_RESULT_AVAILABLE, &stopGUITimerAvailable);
         }
 
@@ -623,8 +628,8 @@ int main(int argc, char* argv[])
         glGetQueryObjectui64v(queryIDSSAO[1], GL_QUERY_RESULT, &stopSSAOTime);
         glGetQueryObjectui64v(queryIDPostprocess[0], GL_QUERY_RESULT, &startPostprocessTime);
         glGetQueryObjectui64v(queryIDPostprocess[1], GL_QUERY_RESULT, &stopPostprocessTime);
-        glGetQueryObjectui64v(queryIDCubemap[0], GL_QUERY_RESULT, &startCubemapTime);
-        glGetQueryObjectui64v(queryIDCubemap[1], GL_QUERY_RESULT, &stopCubemapTime);
+        glGetQueryObjectui64v(queryIDSkybox[0], GL_QUERY_RESULT, &startSkyboxTime);
+        glGetQueryObjectui64v(queryIDSkybox[1], GL_QUERY_RESULT, &stopSkyboxTime);
         glGetQueryObjectui64v(queryIDGUI[0], GL_QUERY_RESULT, &startGUITime);
         glGetQueryObjectui64v(queryIDGUI[1], GL_QUERY_RESULT, &stopGUITime);
 
@@ -633,7 +638,7 @@ int main(int argc, char* argv[])
         deltaForwardTime = (stopForwardTime - startForwardTime) / 1000000.0;
         deltaSSAOTime = (stopSSAOTime - startSSAOTime) / 1000000.0;
         deltaPostprocessTime = (stopPostprocessTime - startPostprocessTime) / 1000000.0;
-        deltaCubemapTime = (stopCubemapTime - startCubemapTime) / 1000000.0;
+        deltaSkyboxTime = (stopSkyboxTime - startSkyboxTime) / 1000000.0;
         deltaGUITime = (stopGUITime - startGUITime) / 1000000.0;
 
         glfwSwapBuffers(window);
@@ -669,7 +674,7 @@ void imGuiSetup()
 
     ImGui::Begin("GLEngine", &guiIsOpen, ImVec2(0, 0), 0.5f, ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoSavedSettings);
 
-    if (ImGui::CollapsingHeader("Rendering options", 0, true, true))
+    if (ImGui::CollapsingHeader("Rendering", 0, true, true))
     {
         if (ImGui::TreeNode("Material"))
         {
@@ -686,28 +691,28 @@ void imGuiSetup()
         {
             if (ImGui::TreeNode("Positions"))
             {
-                ImGui::SliderFloat3("Point Pos. 1", (float*)&lightPointPosition1, -5.0f, 5.0f);
-                ImGui::SliderFloat3("Point Pos. 2", (float*)&lightPointPosition2, -5.0f, 5.0f);
-                ImGui::SliderFloat3("Point Pos. 3", (float*)&lightPointPosition3, -5.0f, 5.0f);
+                ImGui::SliderFloat3("Point 1", (float*)&lightPointPosition1, -5.0f, 5.0f);
+                ImGui::SliderFloat3("Point 2", (float*)&lightPointPosition2, -5.0f, 5.0f);
+                ImGui::SliderFloat3("Point 3", (float*)&lightPointPosition3, -5.0f, 5.0f);
 
                 ImGui::TreePop();
             }
 
             if (ImGui::TreeNode("Colors"))
             {
-                ImGui::ColorEdit3("Point Color 1", (float*)&lightPointColor1);
-                ImGui::ColorEdit3("Point Color 2", (float*)&lightPointColor2);
-                ImGui::ColorEdit3("Point Color 3", (float*)&lightPointColor3);
-                ImGui::ColorEdit3("Direct. Color 1", (float*)&lightDirectionalColor1);
+                ImGui::ColorEdit3("Point 1", (float*)&lightPointColor1);
+                ImGui::ColorEdit3("Point 2", (float*)&lightPointColor2);
+                ImGui::ColorEdit3("Point 3", (float*)&lightPointColor3);
+                ImGui::ColorEdit3("Direct. 1", (float*)&lightDirectionalColor1);
 
                 ImGui::TreePop();
             }
 
             if (ImGui::TreeNode("Radius"))
             {
-                ImGui::SliderFloat("Point Radius 1", &lightPointRadius1, 0.0f, 10.0f);
-                ImGui::SliderFloat("Point Radius 2", &lightPointRadius2, 0.0f, 10.0f);
-                ImGui::SliderFloat("Point Radius 3", &lightPointRadius3, 0.0f, 10.0f);
+                ImGui::SliderFloat("Point 1", &lightPointRadius1, 0.0f, 10.0f);
+                ImGui::SliderFloat("Point 2", &lightPointRadius2, 0.0f, 10.0f);
+                ImGui::SliderFloat("Point 3", &lightPointRadius3, 0.0f, 10.0f);
 
                 ImGui::TreePop();
             }
@@ -715,20 +720,20 @@ void imGuiSetup()
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("SSAO"))
-        {
-            ImGui::SliderFloat("Power", &ssaoPower, 0.0f, 4.0f);
-            ImGui::SliderInt("Kernel Size", &ssaoKernelSize, 0, 128);
-            ImGui::SliderInt("Noise Size", &ssaoNoiseSize, 0, 16);
-            ImGui::SliderFloat("Radius", &ssaoRadius, 0.0f, 3.0f);
-            ImGui::SliderInt("Blur Size", &ssaoBlurSize, 0, 16);
-            ImGui::SliderFloat("Bias", &ssaoBias, 0, 0.5f);
-
-            ImGui::TreePop();
-        }
-
         if (ImGui::TreeNode("Post processing"))
         {
+            if (ImGui::TreeNode("SSAO"))
+            {
+                ImGui::SliderFloat("Power", &ssaoPower, 0.0f, 4.0f);
+                ImGui::SliderInt("Kernel Size", &ssaoKernelSize, 0, 128);
+                ImGui::SliderInt("Noise Size", &ssaoNoiseSize, 0, 16);
+                ImGui::SliderFloat("Radius", &ssaoRadius, 0.0f, 3.0f);
+                ImGui::SliderInt("Blur Size", &ssaoBlurSize, 0, 16);
+                ImGui::SliderFloat("Bias", &ssaoBias, 0, 0.5f);
+
+                ImGui::TreePop();
+            }
+
             ImGui::Checkbox("FXAA", &fxaaMode);
 
             ImGui::TreePop();
@@ -751,7 +756,7 @@ void imGuiSetup()
         ImGui::Text("Forward Pass :     %.4f ms", deltaForwardTime);
         ImGui::Text("SSAO Pass :        %.4f ms", deltaSSAOTime);
         ImGui::Text("Postprocess Pass : %.4f ms", deltaPostprocessTime);
-        ImGui::Text("Cubemap Pass :     %.4f ms", deltaCubemapTime);
+        ImGui::Text("Skybox Pass :      %.4f ms", deltaSkyboxTime);
         ImGui::Text("GUI Pass :         %.4f ms", deltaGUITime);
     }
 
@@ -929,9 +934,9 @@ void postprocessSetup()
 
 
 
-void gBufferQuad()
+void screenQuad()
 {
-    if (gBufferQuadVAO == 0)
+    if (screenQuadVAO == 0)
     {
         GLfloat quadVertices[] = {
             -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
@@ -940,10 +945,10 @@ void gBufferQuad()
              1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
         };
 
-        glGenVertexArrays(1, &gBufferQuadVAO);
-        glGenBuffers(1, &gBufferQuadVBO);
-        glBindVertexArray(gBufferQuadVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, gBufferQuadVBO);
+        glGenVertexArrays(1, &screenQuadVAO);
+        glGenBuffers(1, &screenQuadVBO);
+        glBindVertexArray(screenQuadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, screenQuadVBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
@@ -951,7 +956,7 @@ void gBufferQuad()
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
     }
 
-    glBindVertexArray(gBufferQuadVAO);
+    glBindVertexArray(screenQuadVAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
 }
