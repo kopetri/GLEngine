@@ -30,7 +30,7 @@ Features
 * Material :
 	* PBR material pipeline :
 		* Albedo
-		* **TODO :** Normal
+        * Normal
 		* Roughness
 		* Metalness
 		* AO

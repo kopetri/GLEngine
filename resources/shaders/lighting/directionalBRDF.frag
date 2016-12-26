@@ -50,7 +50,7 @@ vec3 saturate(vec3 vec);
 void main()
 {
     // Retrieve G-Buffer informations
-    vec3 worldPos = texture(gPosition, TexCoords).rgb;
+    vec3 viewPos = texture(gPosition, TexCoords).rgb;
     vec3 normal = texture(gNormal, TexCoords).rgb;
     vec3 albedo = colorLinear(texture(gAlbedo, TexCoords).rgb);
     float roughness = texture(gRoughness, TexCoords).r;
@@ -60,7 +60,7 @@ void main()
 
     float ssao = texture(ssao, TexCoords).r;
 
-    vec3 V = normalize(- worldPos);
+    vec3 V = normalize(- viewPos);
     vec3 N = normalize(normal);
     vec3 R = normalize(reflect(- V, N));
 
@@ -111,9 +111,10 @@ void main()
         specular = (F * D * G) / (4 * NdotL * NdotV + 0.0001f);
 
 
-        color += (diffuse * kDisney * kD + specular) * lightColor * NdotL * ssao;
+        color += (diffuse * kDisney * kD + specular) * lightColor * NdotL;
     }
 
+    color *= ssao;
     color += ambient;
 
     // Reinhard Tonemapping
@@ -129,7 +130,7 @@ void main()
     }
     // Position buffer
     else if (gBufferView == 2)
-        colorOutput = vec4(worldPos, 1.0f);
+        colorOutput = vec4(viewPos, 1.0f);
 
     // World Normal buffer
     else if (gBufferView == 3)

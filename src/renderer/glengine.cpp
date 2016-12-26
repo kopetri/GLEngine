@@ -222,13 +222,15 @@ int main(int argc, char* argv[])
     //-----------
 //    pbrMat.setShader(gBufferShader);
 //    pbrMat.addTexture("texAlbedo", ironAlbedo);
+//    pbrMat.addTexture("texNormal", ironNormal);
 //    pbrMat.addTexture("texRoughness", ironRoughness);
 //    pbrMat.addTexture("texMetalness", ironMetalness);
 //    pbrMat.addTexture("texAO", ironAO);
-//    pbrMat.addTexture("texAlbedo", TextureObject ("resources/textures/pbr/rustediron/rustediron_albedo.png", "texAlbedo", true));
-//    pbrMat.addTexture("texRoughness", TextureObject ("resources/textures/pbr/rustediron/rustediron_roughness.png", "texRoughness", true));
-//    pbrMat.addTexture("texMetalness", TextureObject ("resources/textures/pbr/rustediron/rustediron_metalness.png", "texMetalness", true));
-//    pbrMat.addTexture("texAO", TextureObject ("resources/textures/pbr/rustediron/rustediron_ao.png", "texAO", true));
+//    pbrMat.addTexture("texAlbedo", TextureObject ("resources/textures/pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true));
+//    pbrMat.addTexture("texNormal", TextureObject ("resources/textures/pbr/rustediron/rustediron_normal.png", "ironNormal", true));
+//    pbrMat.addTexture("texRoughness", TextureObject ("resources/textures/pbr/rustediron/rustediron_roughness.png", "ironRoughness", true));
+//    pbrMat.addTexture("texMetalness", TextureObject ("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness", true));
+//    pbrMat.addTexture("texAO", TextureObject ("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO", true));
 
 
     //---------
@@ -385,14 +387,17 @@ int main(int argc, char* argv[])
         ironAlbedo.useTexture();
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "texAlbedo"), 0);
         glActiveTexture(GL_TEXTURE1);
-        ironRoughness.useTexture();
-        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texRoughness"), 1);
+        ironNormal.useTexture();
+        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texNormal"), 1);
         glActiveTexture(GL_TEXTURE2);
-        ironMetalness.useTexture();
-        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texMetalness"), 2);
+        ironRoughness.useTexture();
+        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texRoughness"), 2);
         glActiveTexture(GL_TEXTURE3);
+        ironMetalness.useTexture();
+        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texMetalness"), 3);
+        glActiveTexture(GL_TEXTURE4);
         ironAO.useTexture();
-        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texAO"), 3);
+        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texAO"), 4);
 
         shaderballModel.Draw();
 

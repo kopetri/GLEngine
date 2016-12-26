@@ -50,7 +50,7 @@ vec3 saturate(vec3 vec);
 void main()
 {
     // Retrieve G-Buffer informations
-    vec3 worldPos = texture(gPosition, TexCoords).rgb;
+    vec3 viewPos = texture(gPosition, TexCoords).rgb;
     vec3 normal = texture(gNormal, TexCoords).rgb;
     vec3 albedo = colorLinear(texture(gAlbedo, TexCoords).rgb);
     float roughness = texture(gRoughness, TexCoords).r;
@@ -60,7 +60,7 @@ void main()
 
     float ssao = texture(ssao, TexCoords).r;
 
-    vec3 V = normalize(- worldPos);
+    vec3 V = normalize(- viewPos);
     vec3 N = normalize(normal);
     vec3 R = normalize(reflect(- V, N));
 
@@ -86,11 +86,11 @@ void main()
 
     for (int i = 0; i < lightPointCounter; i++)
     {
-        vec3 L = normalize(lightPointArray[i].position - worldPos);
+        vec3 L = normalize(lightPointArray[i].position - viewPos);
         vec3 H = normalize(L + V);
 
         vec3 lightColor = colorLinear(lightPointArray[i].color.rgb);
-        float distanceL = length(lightPointArray[i].position - worldPos);
+        float distanceL = length(lightPointArray[i].position - viewPos);
 //        float attenuation = 1.0 / (distanceL * distanceL);    // Quadratic attenuation
         float attenuation = pow(saturate(1 - pow(distanceL / lightPointArray[i].radius, 4)), 2) / (distanceL * distanceL + 1);    // UE4 attenuation
 
@@ -117,9 +117,10 @@ void main()
         specular = (F * D * G) / (4 * NdotL * NdotV + 0.0001f);
 
 
-        color += (diffuse * kDisney * kD + specular) * kRadiance * NdotL * ssao;
+        color += (diffuse * kDisney * kD + specular) * kRadiance * NdotL;
     }
 
+    color *= ssao;
     color += ambient;
 
     // Reinhard Tonemapping
@@ -135,7 +136,7 @@ void main()
     }
     // Position buffer
     else if (gBufferView == 2)
-        colorOutput = vec4(worldPos, 1.0f);
+        colorOutput = vec4(viewPos, 1.0f);
 
     // World Normal buffer
     else if (gBufferView == 3)
