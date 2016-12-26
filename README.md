@@ -1,12 +1,12 @@
 GLEngine
 ======
-GLEngine is a C++ OpenGL graphics engine which aimed to be a skill, knowledge and possibly graphical showcase. It will support many graphic features, from something as basic as textures and shaders to Deferred Rendering, PBR and such.
+GLEngine is a C++ OpenGL graphics engine which aimed to be a skill, knowledge and possibly graphical showcase. It will support many graphical features, from something as basic as textures and shaders to deferred rendering, PBR and such.
 
 Screenshots
 ------
 
-![](http://image.noelshack.com/fichiers/2016/51/1482666936-glengine1.png)
-![](http://image.noelshack.com/fichiers/2016/51/1482666937-glengine2.png)
+![](http://image.noelshack.com/fichiers/2016/52/1482761415-glengine1.png)
+![](http://image.noelshack.com/fichiers/2016/52/1482761414-glengine2.png)
 
 
 Features
@@ -57,7 +57,7 @@ Features
     * Screenquad based
     * Equirectangular/spherical maps
     * HDR
-    * **TODO :** Deferred Rendering compliant
+    * Deferred Rendering compliant
     
 * Resources Manager :
     * **TODO :** Resources (textures, shaders, models, materials...) centralization
@@ -82,13 +82,13 @@ Features
         * Fresnel term : Schlick
         * Microfacet distribution : GGX
         * Geometry attenuation : GGX-Smith
-    * Tonemapping (Reinhard)
     * Material pipeline using a roughness/metalness workflow
     * **TODO :** Image-Based Lighting
 
 * Post-processing :
 	* SSAO
     * FXAA
+    * Tonemapping (Reinhard)
 	* **TODO :** Motion Blur (camera/per-fragment)
 	* **TODO :** Bloom
 	* **TODO :** Depth of Field

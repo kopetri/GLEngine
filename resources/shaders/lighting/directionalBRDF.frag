@@ -1,6 +1,7 @@
 #version 400 core
 
 in vec2 TexCoords;
+in vec3 envMapCoords;
 out vec4 colorOutput;
 
 
@@ -11,6 +12,10 @@ struct LightObject {
 
 float PI  = 3.14159265359f;
 
+// Light source(s) informations
+uniform int lightDirectionalCounter = 3;
+uniform LightObject lightDirectionalArray[3];
+
 // G-Buffer
 uniform sampler2D gPosition;
 uniform sampler2D gNormal;
@@ -18,11 +23,9 @@ uniform sampler2D gAlbedo;
 uniform sampler2D gRoughness;
 uniform sampler2D gMetalness;
 uniform sampler2D gAO;
-uniform sampler2D ssao;
 
-// Light source(s) informations
-uniform int lightDirectionalCounter = 1;
-uniform LightObject lightDirectionalArray[1];
+uniform sampler2D ssao;
+uniform sampler2D envMap;
 
 uniform int gBufferView;
 uniform float materialRoughness;
@@ -39,11 +42,10 @@ vec3 FresnelSchlick(float NdotV, vec3 F0, float roughness);
 float DistributionGGX(vec3 N, vec3 H, float roughness);
 float GeometryAttenuationGGXSmith(float NdotL, float NdotV, float roughness);
 vec3 colorLinear(vec3 colorVector);
-vec3 colorSRGB(vec3 colorVector);
-vec3 ReinhardTM(vec3 color);
 float saturate(float f);
 vec2 saturate(vec2 vec);
 vec3 saturate(vec3 vec);
+vec2 getSphericalCoord(vec3 normalCoord);
 
 
 
@@ -59,75 +61,76 @@ void main()
     float depth = texture(gPosition, TexCoords).a;
 
     float ssao = texture(ssao, TexCoords).r;
-
-    vec3 V = normalize(- viewPos);
-    vec3 N = normalize(normal);
-    vec3 R = normalize(reflect(- V, N));
+    vec3 envColor = texture(envMap, getSphericalCoord(normalize(envMapCoords))).rgb;
 
     vec3 color = vec3(0.0f);
     vec3 diffuse = vec3(0.0f);
     vec3 specular = vec3(0.0f);
 
-    // Ambient component computation
-    vec3 ambient = ao * albedo * vec3(ambientIntensity);    // While we don't have IBL...
-
-    // Light source independent BRDF term(s)
-    float NdotV = saturate(dot(N, V));
-
-    // Fresnel (Schlick) computation (F term)
-    vec3 F0 = mix(materialF0, albedo, metalness);
-    vec3 F = FresnelSchlick(NdotV, F0, roughness);
-
-    // Energy conservation
-    vec3 kS = F;
-    vec3 kD = vec3(1.0f) - kS;
-    kD *= 1.0f - metalness;
-
-
-    for (int i = 0; i < lightDirectionalCounter; i++)
+    if(depth == 1.0f)
     {
-        vec3 L = normalize(- lightDirectionalArray[i].direction);
-        vec3 H = normalize(L + V);
-
-        vec3 lightColor = colorLinear(lightDirectionalArray[i].color.rgb);
-
-        // Light source dependent BRDF term(s)
-        float NdotL = saturate(dot(N, L));
-
-        // Diffuse component computation
-//        diffuse = albedo/PI - (albedo/PI) * metalness;    // The right way to compute diffuse but any surface that should reflect the environment would appear black at the moment...
-        diffuse = (albedo/PI);
-
-        // Disney diffuse term
-        float kDisney = KDisneyTerm(NdotL, NdotV, roughness);
-
-        // Distribution (GGX) computation (D term)
-        float D = DistributionGGX(N, H, roughness);
-
-        // Geometry attenuation (GGX-Smith) computation (G term)
-        float G = GeometryAttenuationGGXSmith(NdotL, NdotV, roughness);
-
-        // Specular component computation
-        specular = (F * D * G) / (4 * NdotL * NdotV + 0.0001f);
-
-
-        color += (diffuse * kDisney * kD + specular) * lightColor * NdotL;
+        color = envColor;
     }
 
-    color *= ssao;
-    color += ambient;
+    else
+    {
+        vec3 V = normalize(- viewPos);
+        vec3 N = normalize(normal);
+        vec3 R = normalize(reflect(- V, N));
 
-    // Reinhard Tonemapping
-    color = ReinhardTM(color);
+        // Ambient component computation
+        vec3 ambient = ao * albedo * vec3(ambientIntensity);    // While we don't have IBL...
 
+        // Light source independent BRDF term(s)
+        float NdotV = saturate(dot(N, V));
+
+        // Fresnel (Schlick) computation (F term)
+        vec3 F0 = mix(materialF0, albedo, metalness);
+        vec3 F = FresnelSchlick(NdotV, F0, roughness);
+
+        // Energy conservation
+        vec3 kS = F;
+        vec3 kD = vec3(1.0f) - kS;
+        kD *= 1.0f - metalness;
+
+        for (int i = 0; i < lightDirectionalCounter; i++)
+        {
+            vec3 L = normalize(- lightDirectionalArray[i].direction);
+            vec3 H = normalize(L + V);
+
+            vec3 lightColor = colorLinear(lightDirectionalArray[i].color.rgb);
+
+            // Light source dependent BRDF term(s)
+            float NdotL = saturate(dot(N, L));
+
+            // Diffuse component computation
+//            diffuse = albedo/PI - (albedo/PI) * metalness;    // The right way to compute diffuse but any surface that should reflect the environment would appear black at the moment...
+            diffuse = (albedo/PI);
+
+            // Disney diffuse term
+            float kDisney = KDisneyTerm(NdotL, NdotV, roughness);
+
+            // Distribution (GGX) computation (D term)
+            float D = DistributionGGX(N, H, roughness);
+
+            // Geometry attenuation (GGX-Smith) computation (G term)
+            float G = GeometryAttenuationGGXSmith(NdotL, NdotV, roughness);
+
+            // Specular component computation
+            specular = (F * D * G) / (4 * NdotL * NdotV + 0.0001f);
+
+
+            color += (diffuse * kDisney * kD + specular) * lightColor * NdotL;
+        }
+
+        color += ambient;
+    }
 
     // Switching between the different buffers
     // Final buffer
     if(gBufferView == 1)
-    {
-        color = colorSRGB(color);
         colorOutput = vec4(color, 1.0f);
-    }
+
     // Position buffer
     else if (gBufferView == 2)
         colorOutput = vec4(viewPos, 1.0f);
@@ -152,7 +155,7 @@ void main()
     else if (gBufferView == 7)
         colorOutput = vec4(vec3(depth/50.0f), 1.0f);
 
-    // AO buffer
+    // SSAO buffer
     else if (gBufferView == 8)
         colorOutput = vec4(vec3(ssao), 1.0f);
 }
@@ -216,20 +219,6 @@ vec3 colorLinear(vec3 colorVector)
 }
 
 
-vec3 colorSRGB(vec3 colorVector)
-{
-  vec3 srgbColor = pow(colorVector.rgb, vec3(1.0f / 2.2f));
-
-  return srgbColor;
-}
-
-
-vec3 ReinhardTM(vec3 color)
-{
-    return color / (color + vec3(1.0f));
-}
-
-
 float saturate(float f)
 {
     return clamp(f, 0.0, 1.0);
@@ -245,4 +234,13 @@ vec2 saturate(vec2 vec)
 vec3 saturate(vec3 vec)
 {
     return clamp(vec, 0.0, 1.0);
+}
+
+
+vec2 getSphericalCoord(vec3 normalCoord)
+{
+  float phi = acos(-normalCoord.y);
+  float theta = atan(1.0f * normalCoord.x, -normalCoord.z) + PI;
+
+  return vec2(theta / (2.0f * PI), phi / PI);
 }

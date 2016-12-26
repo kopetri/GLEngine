@@ -18,7 +18,7 @@ uniform sampler2D texRoughness;
 uniform sampler2D texMetalness;
 uniform sampler2D texAO;
 
-const float nearPlane = 0.1;
+const float nearPlane = 0.1f;
 const float farPlane = 100.0f;
 
 float LinearizeDepth(float depth);
