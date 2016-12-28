@@ -27,13 +27,15 @@ uniform sampler2D gAO;
 
 uniform sampler2D ssao;
 uniform sampler2D envMap;
+uniform sampler2D envMapIrradiance;
+uniform sampler2D brdfLUT;
 
 uniform int gBufferView;
 uniform float materialRoughness;
 uniform float materialMetallicity;
 uniform float ambientIntensity;
-uniform vec3 viewPos;
 uniform vec3 materialF0;
+uniform mat4 view;
 
 
 float Fd90(float NoL, float roughness);
@@ -52,7 +54,7 @@ vec2 getSphericalCoord(vec3 normalCoord);
 void main()
 {
     // Retrieve G-Buffer informations
-    vec3 viewPos = texture(gPosition, TexCoords).rgb;
+    vec3 worldPos = texture(gPosition, TexCoords).rgb;
     vec3 normal = texture(gNormal, TexCoords).rgb;
     vec3 albedo = colorLinear(texture(gAlbedo, TexCoords).rgb);
     float roughness = texture(gRoughness, TexCoords).r;
@@ -74,14 +76,11 @@ void main()
 
     else
     {
-        vec3 V = normalize(- viewPos);
+        vec3 V = normalize(- worldPos);
         vec3 N = normalize(normal);
-        vec3 R = normalize(reflect(- V, N));
+        vec3 R = reflect(-V, N);
+        vec3 nView = normalize(N * mat3(view));
 
-        // Ambient component computation
-        vec3 ambient = ao * albedo * vec3(ambientIntensity);    // While we don't have IBL...
-
-        // Light source independent BRDF term(s)
         float NdotV = saturate(dot(N, V));
 
         // Fresnel (Schlick) computation (F term)
@@ -93,43 +92,12 @@ void main()
         vec3 kD = vec3(1.0f) - kS;
         kD *= 1.0f - metalness;
 
-        for (int i = 0; i < lightPointCounter; i++)
-        {
-            vec3 L = normalize(lightPointArray[i].position - viewPos);
-            vec3 H = normalize(L + V);
-
-            vec3 lightColor = colorLinear(lightPointArray[i].color.rgb);
-            float distanceL = length(lightPointArray[i].position - viewPos);
-//            float attenuation = 1.0 / (distanceL * distanceL);    // Quadratic attenuation
-            float attenuation = pow(saturate(1 - pow(distanceL / lightPointArray[i].radius, 4)), 2) / (distanceL * distanceL + 1);    // UE4 attenuation
-
-            // Light source dependent BRDF term(s)
-            float NdotL = saturate(dot(N, L));
-
-            // Radiance computation
-            vec3 kRadiance = lightColor * attenuation;
-
-            // Diffuse component computation
-//            diffuse = albedo/PI - (albedo/PI) * metalness;    // The right way to compute diffuse but any surface that should reflect the environment would appear black at the moment...
-            diffuse = albedo/PI;
-
-            // Disney diffuse term
-            float kDisney = KDisneyTerm(NdotL, NdotV, roughness);
-
-            // Distribution (GGX) computation (D term)
-            float D = DistributionGGX(N, H, roughness);
-
-            // Geometry attenuation (GGX-Smith) computation (G term)
-            float G = GeometryAttenuationGGXSmith(NdotL, NdotV, roughness);
-
-            // Specular component computation
-            specular = (F * D * G) / (4 * NdotL * NdotV + 0.0001f);
+        // Irradiance computation
+        vec3 irradiance = texture(envMapIrradiance, getSphericalCoord(nView)).rgb;
+        vec3 diffuse  = (albedo * irradiance);
 
 
-            color += (diffuse * kDisney * kD + specular) * kRadiance * NdotL;
-        }
-
-        color += ambient;
+        color = diffuse * kD;
     }
 
 
@@ -140,7 +108,7 @@ void main()
 
     // Position buffer
     else if (gBufferView == 2)
-        colorOutput = vec4(viewPos, 1.0f);
+        colorOutput = vec4(worldPos, 1.0f);
 
     // World Normal buffer
     else if (gBufferView == 3)
@@ -246,8 +214,8 @@ vec3 saturate(vec3 vec)
 
 vec2 getSphericalCoord(vec3 normalCoord)
 {
-  float phi = acos(-normalCoord.y);
-  float theta = atan(1.0f * normalCoord.x, -normalCoord.z) + PI;
+    float phi = acos(-normalCoord.y);
+    float theta = atan(1.0f * normalCoord.x, -normalCoord.z) + PI;
 
-  return vec2(theta / (2.0f * PI), phi / PI);
+    return vec2(theta / (2.0f * PI), phi / PI);
 }

@@ -31,6 +31,7 @@ void main()
     texNormal.g = -texNormal.g;   // In case the normal map was made with DX3D coordinates system in mind
 
 //    gAlbedo.rgb = vec3(albedoColor);
+//    gNormal.rgb = normalize(normal);
     gAlbedo.rgb = vec3(texture(texAlbedo, TexCoords));
     gNormal.rgb = computeTexNormal(normal, texNormal);
     gRoughness.rgb = vec3(texture(texRoughness, TexCoords));

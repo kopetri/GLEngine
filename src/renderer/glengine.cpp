@@ -136,7 +136,9 @@ Texture ironNormal;
 Texture ironRoughness;
 Texture ironMetalness;
 Texture ironAO;
-Texture skyboxHDR;
+Texture appartHDR;
+Texture appartIrradianceHDR;
+Texture brdfLUT;
 
 Material pbrMat;
 
@@ -214,7 +216,9 @@ int main(int argc, char* argv[])
     ironMetalness.setTexture("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
     ironAO.setTexture("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO", true);
 
-    skyboxHDR.setTextureHDR("resources/textures/hdr/pisa.hdr", "skyboxHDR", true);
+    appartHDR.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);
+    appartIrradianceHDR.setTextureHDR("resources/textures/hdr/appart_irradiance.hdr", "appartIrradianceHDR", true);
+    brdfLUT.setTexture("resources/textures/hdr/brdfLUT.png", "ironAO", true);
 
 
     //-----------
@@ -293,6 +297,8 @@ int main(int argc, char* argv[])
     glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "gAO"), 5);
     glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "ssao"), 6);
     glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "envMap"), 7);
+    glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "envMapIrradiance"), 8);
+    glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "brdfLUT"), 9);
 
     ssaoShader.useShader();
     glUniform1i(glGetUniformLocation(ssaoShader.Program, "gPosition"), 0);
@@ -493,7 +499,7 @@ int main(int argc, char* argv[])
         glActiveTexture(GL_TEXTURE6);
         glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
         glActiveTexture(GL_TEXTURE7);
-        skyboxHDR.useTexture();
+        appartHDR.useTexture();
 
         lightPoint1.setLightPosition(lightPointPosition1);
         lightPoint2.setLightPosition(lightPointPosition2);
@@ -512,7 +518,6 @@ int main(int argc, char* argv[])
 
         glUniformMatrix4fv(glGetUniformLocation(pointBRDFShader.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
         glUniformMatrix4fv(glGetUniformLocation(pointBRDFShader.Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
-        glUniform3f(glGetUniformLocation(pointBRDFShader.Program, "viewPos"), camera.cameraPosition.x, camera.cameraPosition.y, camera.cameraPosition.z);
         glUniform1f(glGetUniformLocation(pointBRDFShader.Program, "materialRoughness"), materialRoughness);
         glUniform1f(glGetUniformLocation(pointBRDFShader.Program, "materialMetallicity"), materialMetallicity);
         glUniform3f(glGetUniformLocation(pointBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
@@ -537,7 +542,7 @@ int main(int argc, char* argv[])
 //        glActiveTexture(GL_TEXTURE6);
 //        glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
 //        glActiveTexture(GL_TEXTURE7);
-//        skyboxHDR.useTexture();
+//        appartHDR.useTexture();
 
 //        lightDirectional1.setLightColor(glm::vec4(lightDirectionalColor1, 1.0f));
 
@@ -548,12 +553,44 @@ int main(int argc, char* argv[])
 
 //        glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
 //        glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
-//        glUniform3f(glGetUniformLocation(directionalBRDFShader.Program, "viewPos"), camera.cameraPosition.x, camera.cameraPosition.y, camera.cameraPosition.z);
 //        glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "materialRoughness"), materialRoughness);
 //        glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "materialMetallicity"), materialMetallicity);
 //        glUniform3f(glGetUniformLocation(directionalBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
 //        glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "ambientIntensity"), ambientIntensity);
 //        glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gBufferView"), gBufferView);
+
+//        // Environment light rendering
+//        environmentBRDFShader.useShader();
+
+//        glActiveTexture(GL_TEXTURE0);
+//        glBindTexture(GL_TEXTURE_2D, gPosition);
+//        glActiveTexture(GL_TEXTURE1);
+//        glBindTexture(GL_TEXTURE_2D, gNormal);
+//        glActiveTexture(GL_TEXTURE2);
+//        glBindTexture(GL_TEXTURE_2D, gAlbedo);
+//        glActiveTexture(GL_TEXTURE3);
+//        glBindTexture(GL_TEXTURE_2D, gRoughness);
+//        glActiveTexture(GL_TEXTURE4);
+//        glBindTexture(GL_TEXTURE_2D, gMetalness);
+//        glActiveTexture(GL_TEXTURE5);
+//        glBindTexture(GL_TEXTURE_2D, gAO);
+//        glActiveTexture(GL_TEXTURE6);
+//        glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
+//        glActiveTexture(GL_TEXTURE7);
+//        appartHDR.useTexture();
+//        glActiveTexture(GL_TEXTURE8);
+//        appartIrradianceHDR.useTexture();
+//        glActiveTexture(GL_TEXTURE9);
+//        brdfLUT.useTexture();
+
+//        glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
+//        glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
+//        glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+//        glUniform1f(glGetUniformLocation(environmentBRDFShader.Program, "materialRoughness"), materialRoughness);
+//        glUniform1f(glGetUniformLocation(environmentBRDFShader.Program, "materialMetallicity"), materialMetallicity);
+//        glUniform3f(glGetUniformLocation(environmentBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
+//        glUniform1f(glGetUniformLocation(environmentBRDFShader.Program, "ambientIntensity"), ambientIntensity);
+//        glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "gBufferView"), gBufferView);
 
         screenQuad();
         glBindFramebuffer(GL_FRAMEBUFFER, 0);

@@ -32,7 +32,6 @@ uniform int gBufferView;
 uniform float materialRoughness;
 uniform float materialMetallicity;
 uniform float ambientIntensity;
-uniform vec3 viewPos;
 uniform vec3 materialF0;
 
 
