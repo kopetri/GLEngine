@@ -5,17 +5,7 @@ in vec3 envMapCoords;
 out vec4 colorOutput;
 
 
-struct LightObject {
-    vec3 position;
-    vec4 color;
-    float radius;
-};
-
 float PI  = 3.14159265359f;
-
-// Light source(s) informations
-uniform int lightPointCounter = 3;
-uniform LightObject lightPointArray[3];
 
 // G-Buffer
 uniform sampler2D gPosition;
@@ -24,6 +14,7 @@ uniform sampler2D gAlbedo;
 uniform sampler2D gRoughness;
 uniform sampler2D gMetalness;
 uniform sampler2D gAO;
+uniform sampler2D gVelocity;
 
 uniform sampler2D ssao;
 uniform sampler2D envMap;
@@ -54,12 +45,13 @@ vec2 getSphericalCoord(vec3 normalCoord);
 void main()
 {
     // Retrieve G-Buffer informations
-    vec3 worldPos = texture(gPosition, TexCoords).rgb;
+    vec3 viewPos = texture(gPosition, TexCoords).rgb;
     vec3 normal = texture(gNormal, TexCoords).rgb;
     vec3 albedo = colorLinear(texture(gAlbedo, TexCoords).rgb);
     float roughness = texture(gRoughness, TexCoords).r;
     float metalness = texture(gMetalness, TexCoords).r;
     float ao = texture(gAO, TexCoords).r;
+    vec2 velocity = texture(gVelocity, TexCoords).rg;
     float depth = texture(gPosition, TexCoords).a;
 
     float ssao = texture(ssao, TexCoords).r;
@@ -76,7 +68,7 @@ void main()
 
     else
     {
-        vec3 V = normalize(- worldPos);
+        vec3 V = normalize(- viewPos);
         vec3 N = normalize(normal);
         vec3 R = reflect(-V, N);
         vec3 nView = normalize(N * mat3(view));
@@ -108,7 +100,7 @@ void main()
 
     // Position buffer
     else if (gBufferView == 2)
-        colorOutput = vec4(worldPos, 1.0f);
+        colorOutput = vec4(viewPos, 1.0f);
 
     // World Normal buffer
     else if (gBufferView == 3)
@@ -133,6 +125,10 @@ void main()
     // SSAO buffer
     else if (gBufferView == 8)
         colorOutput = vec4(vec3(ssao), 1.0f);
+
+    // Velocity buffer
+    else if (gBufferView == 9)
+        colorOutput = vec4(velocity, 0.0f, 1.0f);
 }
 
 

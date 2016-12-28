@@ -64,7 +64,7 @@ GLuint WIDTH = 1280;
 GLuint HEIGHT = 720;
 
 GLuint screenQuadVAO, screenQuadVBO;
-GLuint gBuffer, zBuffer, gPosition, gNormal, gAlbedo, gRoughness, gMetalness, gAO;
+GLuint gBuffer, zBuffer, gPosition, gNormal, gAlbedo, gRoughness, gMetalness, gAO, gVelocity;
 GLuint ssaoFBO, ssaoBlurFBO, ssaoBuffer, ssaoBlurBuffer, noiseTexture;
 GLuint postprocessFBO, postprocessBuffer;
 
@@ -72,6 +72,7 @@ GLint gBufferView = 1;
 GLint ssaoKernelSize = 32;
 GLint ssaoNoiseSize = 4;
 GLint ssaoBlurSize = 4;
+GLint motionBlurMaxSamples = 20;
 
 GLfloat lastX = WIDTH / 2;
 GLfloat lastY = HEIGHT / 2;
@@ -99,6 +100,7 @@ GLfloat cameraISO = 1000.0f;
 bool cameraMode;
 bool ssaoMode = false;
 bool fxaaMode = false;
+bool motionBlurMode = false;
 bool screenMode = false;
 bool firstMouse = true;
 bool guiIsOpen = true;
@@ -122,7 +124,6 @@ std::vector<glm::vec3> ssaoNoise;
 Camera camera(glm::vec3(0.0f, 0.0f, 4.0f));
 
 Shader gBufferShader;
-Shader velocityShader;
 Shader lampShader;
 Shader pointBRDFShader;
 Shader directionalBRDFShader;
@@ -195,7 +196,6 @@ int main(int argc, char* argv[])
     // Shader(s)
     //----------
     gBufferShader.setShader("resources/shaders/gBuffer.vert", "resources/shaders/gBuffer.frag");
-    velocityShader.setShader("resources/shaders/velocity.vert", "resources/shaders/velocity.frag");
 
     lampShader.setShader("resources/shaders/lighting/lamp.vert", "resources/shaders/lighting/lamp.frag");
     pointBRDFShader.setShader("resources/shaders/lighting/pointBRDF.vert", "resources/shaders/lighting/pointBRDF.frag");
@@ -275,8 +275,9 @@ int main(int argc, char* argv[])
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gRoughness"), 3);
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gMetalness"), 4);
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gAO"), 5);
-    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "ssao"), 6);
-    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "envMap"), 7);
+    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gVelocity"), 6);
+    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "ssao"), 7);
+    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "envMap"), 8);
 
     directionalBRDFShader.useShader();
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gPosition"), 0);
@@ -307,7 +308,7 @@ int main(int argc, char* argv[])
 
     firstpassShader.useShader();
     glUniform1i(glGetUniformLocation(firstpassShader.Program, "ssao"), 1);
-
+    glUniform1i(glGetUniformLocation(firstpassShader.Program, "gVelocity"), 2);
 
     //---------------
     // G-Buffer setup
@@ -324,9 +325,8 @@ int main(int argc, char* argv[])
     //---------------------
     // Postprocessing setup
     //---------------------
-    glm::mat4 prevProjection;
-    glm::mat4 prevView;
-    glm::mat4 prevModel;
+    glm::mat4 projViewModel;
+    glm::mat4 prevProjViewModel = projViewModel;
 
     postprocessSetup();
 
@@ -394,9 +394,12 @@ int main(int argc, char* argv[])
         model = glm::translate(model, glm::vec3(0.0f));
         model = glm::rotate(model, rotationAngle, glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::scale(model, glm::vec3(0.1f, 0.1f, 0.1f));
+
+        projViewModel = projection * view * model;
+
+        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "projViewModel"), 1, GL_FALSE, glm::value_ptr(projViewModel));
+        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "prevProjViewModel"), 1, GL_FALSE, glm::value_ptr(prevProjViewModel));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "modelViewProj"), 1, GL_FALSE, glm::value_ptr(model * view * projection));
-        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "prevModelViewProj"), 1, GL_FALSE, glm::value_ptr(prevModel * prevView * prevProjection));
         glUniform3f(glGetUniformLocation(gBufferShader.Program, "albedoColor"), albedoColor.r, albedoColor.g, albedoColor.b);
 
         // Material
@@ -423,6 +426,7 @@ int main(int argc, char* argv[])
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glQueryCounter(queryIDGeometry[1], GL_TIMESTAMP);
 
+        prevProjViewModel = projViewModel;
 
         //---------------
         // SSAO rendering
@@ -497,8 +501,10 @@ int main(int argc, char* argv[])
         glActiveTexture(GL_TEXTURE5);
         glBindTexture(GL_TEXTURE_2D, gAO);
         glActiveTexture(GL_TEXTURE6);
-        glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
+        glBindTexture(GL_TEXTURE_2D, gVelocity);
         glActiveTexture(GL_TEXTURE7);
+        glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
+        glActiveTexture(GL_TEXTURE8);
         appartHDR.useTexture();
 
         lightPoint1.setLightPosition(lightPointPosition1);
@@ -605,17 +611,23 @@ int main(int argc, char* argv[])
 
         firstpassShader.useShader();
         glUniform1i(glGetUniformLocation(firstpassShader.Program, "gBufferView"), gBufferView);
+        glUniform2f(glGetUniformLocation(firstpassShader.Program, "screenTextureSize"), 1.0f/WIDTH, 1.0f/HEIGHT);
         glUniform1f(glGetUniformLocation(firstpassShader.Program, "cameraAperture"), cameraAperture);
         glUniform1f(glGetUniformLocation(firstpassShader.Program, "cameraShutterSpeed"), cameraShutterSpeed);
         glUniform1f(glGetUniformLocation(firstpassShader.Program, "cameraISO"), cameraISO);
         glUniform1i(glGetUniformLocation(firstpassShader.Program, "ssaoMode"), ssaoMode);
         glUniform1i(glGetUniformLocation(firstpassShader.Program, "fxaaMode"), fxaaMode);
-        glUniform2f(glGetUniformLocation(firstpassShader.Program, "screenTextureSize"), 1.0f/WIDTH, 1.0f/HEIGHT);
+        glUniform1i(glGetUniformLocation(firstpassShader.Program, "motionBlurMode"), motionBlurMode);
+        glUniform1f(glGetUniformLocation(firstpassShader.Program, "motionBlurScale"), int(ImGui::GetIO().Framerate) / 60.0f);
+        glUniform1i(glGetUniformLocation(firstpassShader.Program, "motionBlurMaxSamples"), motionBlurMaxSamples);
+
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, postprocessBuffer);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, gVelocity);
 
         screenQuad();
         glQueryCounter(queryIDPostprocess[1], GL_TIMESTAMP);
@@ -796,6 +808,14 @@ void imGuiSetup()
                 ImGui::TreePop();
             }
 
+            if (ImGui::TreeNode("Motion Blur"))
+            {
+                ImGui::Checkbox("Enable", &motionBlurMode);
+                ImGui::SliderInt("Max Samples", &motionBlurMaxSamples, 1, 128);
+
+                ImGui::TreePop();
+            }
+
             ImGui::TreePop();
         }
 
@@ -895,9 +915,17 @@ void gBufferSetup()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT5, GL_TEXTURE_2D, gAO, 0);
 
+    // Velocity
+    glGenTextures(1, &gVelocity);
+    glBindTexture(GL_TEXTURE_2D, gVelocity);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, WIDTH, HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT6, GL_TEXTURE_2D, gVelocity, 0);
+
     // Define the COLOR_ATTACHMENTS for the G-Buffer
-    GLuint attachments[6] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5};
-    glDrawBuffers(6, attachments);
+    GLuint attachments[7] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5, GL_COLOR_ATTACHMENT6};
+    glDrawBuffers(7, attachments);
 
     // Z-Buffer
     glGenRenderbuffers(1, &zBuffer);
@@ -1068,6 +1096,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
     if (keys[GLFW_KEY_8])
         gBufferView = 8;
+
+    if (keys[GLFW_KEY_9])
+        gBufferView = 9;
 
     if (key >= 0 && key < 1024)
     {

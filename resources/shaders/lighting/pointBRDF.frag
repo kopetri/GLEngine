@@ -24,6 +24,7 @@ uniform sampler2D gAlbedo;
 uniform sampler2D gRoughness;
 uniform sampler2D gMetalness;
 uniform sampler2D gAO;
+uniform sampler2D gVelocity;
 
 uniform sampler2D ssao;
 uniform sampler2D envMap;
@@ -57,6 +58,7 @@ void main()
     float roughness = texture(gRoughness, TexCoords).r;
     float metalness = texture(gMetalness, TexCoords).r;
     float ao = texture(gAO, TexCoords).r;
+    vec2 velocity = texture(gVelocity, TexCoords).rg;
     float depth = texture(gPosition, TexCoords).a;
 
     float ssao = texture(ssao, TexCoords).r;
@@ -164,6 +166,10 @@ void main()
     // SSAO buffer
     else if (gBufferView == 8)
         colorOutput = vec4(vec3(ssao), 1.0f);
+
+    // Velocity buffer
+    else if (gBufferView == 9)
+        colorOutput = vec4(velocity, 0.0f, 1.0f);
 }
 
 

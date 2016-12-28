@@ -83,13 +83,15 @@ Features
         * Microfacet distribution : GGX
         * Geometry attenuation : GGX-Smith
     * Material pipeline using a roughness/metalness workflow
-    * **TODO :** Image-Based Lighting
+    * Image-Based Lighting :
+        * Diffuse irradiance (precomputed map)
+        * **TODO :** Specular radiance
 
 * Post-processing :
 	* SSAO
     * FXAA
     * Tonemapping (Reinhard)
-	* **TODO :** Motion Blur (camera/per-fragment)
+    * Motion Blur (camera/per-fragment)
 	* **TODO :** Bloom
 	* **TODO :** Depth of Field
 	* **TODO :** Screen-Space Reflections
@@ -114,7 +116,7 @@ Download the source, open the CMakeList.txt file with QtCreator, build the proje
 
 * In GLEngine :
     * Hold the right mouse button to use the camera and its features
-    * Toggle between the different buffers using the 1-5 buttons
+    * Toggle between the different buffers using the 1-9 buttons
 
 Dependencies (included)
 ------
