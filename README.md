@@ -2,11 +2,10 @@ GLEngine
 ======
 GLEngine is a C++ OpenGL graphics engine which aimed to be a skill, knowledge and possibly graphical showcase. It will support many graphical features, from something as basic as textures and shaders to deferred rendering, PBR and such.
 
-Screenshots
+Screenshot
 ------
 
-![](http://image.noelshack.com/fichiers/2016/52/1482761415-glengine1.png)
-![](http://image.noelshack.com/fichiers/2016/52/1482761916-glengine2.png)
+![](http://image.noelshack.com/fichiers/2016/52/1483136816-glengine1.png)
 
 
 Features
@@ -85,7 +84,7 @@ Features
     * Material pipeline using a roughness/metalness workflow
     * Image-Based Lighting :
         * Diffuse irradiance (precomputed map)
-        * Specular radiance (Epic's split-sum method)
+        * Specular radiance (Epic split-sum method)
 
 * Post-processing :
 	* SSAO
