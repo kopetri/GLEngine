@@ -85,7 +85,7 @@ Features
     * Material pipeline using a roughness/metalness workflow
     * Image-Based Lighting :
         * Diffuse irradiance (precomputed map)
-        * **TODO :** Specular radiance
+        * Specular radiance (Epic's split-sum method)
 
 * Post-processing :
 	* SSAO

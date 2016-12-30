@@ -38,8 +38,8 @@ void main()
 
     gPosition = vec4(viewPos, LinearizeDepth(gl_FragCoord.z));
     gAlbedo.rgb = vec3(texture(texAlbedo, TexCoords));
-//    gAlbedo.rgb = vec3(albedoColor);
     gNormal.rgb = computeTexNormal(normal, texNormal);
+//    gAlbedo.rgb = vec3(albedoColor);
 //    gNormal.rgb = normalize(normal);
     gRoughness.rgb = vec3(texture(texRoughness, TexCoords));
     gMetalness.rgb = vec3(texture(texMetalness, TexCoords));
