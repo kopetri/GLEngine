@@ -53,6 +53,9 @@ file(GLOB PROJECT_SHADERS resources/shaders/*.glsl
                           resources/shaders/lighting/*.glsl
                           resources/shaders/lighting/*.frag
                           resources/shaders/lighting/*.vert
+                          resources/shaders/lighting/ibl/*.glsl
+                          resources/shaders/lighting/ibl/*.frag
+                          resources/shaders/lighting/ibl/*.vert
                           resources/shaders/postprocess/*.glsl
                           resources/shaders/postprocess/*.frag
                           resources/shaders/postprocess/*.vert)
