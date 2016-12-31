@@ -5,10 +5,9 @@ GLEngine is a C++ OpenGL graphics engine which aimed to be a skill, knowledge an
 Screenshots
 ------
 
-*Example using Image-Based Lighting :
+* Example using Image-Based Lighting :
 
 ![](http://image.noelshack.com/fichiers/2016/52/1483136816-glengine1.png)
-
 * G-Buffer structure :
 
 ![](http://image.noelshack.com/fichiers/2016/52/1483180466-glengine2.png)
