@@ -71,12 +71,13 @@ GLuint postprocessFBO, postprocessBuffer;
 GLuint prefilterFBO, integrateFBO, prefilterBuffer, integrateBuffer;
 
 GLint gBufferView = 1;
+GLint tonemappingMode = 1;
+GLint lightMode = 1;
 GLint ssaoKernelSize = 32;
 GLint ssaoNoiseSize = 4;
 GLint ssaoBlurSize = 4;
 GLint motionBlurMaxSamples = 20;
 GLint brdfMaxSamples = 32;
-GLint tonemappingMode = 1;
 
 GLfloat lastX = WIDTH / 2;
 GLfloat lastY = HEIGHT / 2;
@@ -169,19 +170,19 @@ int main(int argc, char* argv[])
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-//    GLFWmonitor* glfwMonitor = glfwGetPrimaryMonitor();
-//    const GLFWvidmode* glfwMode = glfwGetVideoMode(glfwMonitor);
+    GLFWmonitor* glfwMonitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode* glfwMode = glfwGetVideoMode(glfwMonitor);
 
-//    glfwWindowHint(GLFW_RED_BITS, glfwMode->redBits);
-//    glfwWindowHint(GLFW_GREEN_BITS, glfwMode->greenBits);
-//    glfwWindowHint(GLFW_BLUE_BITS, glfwMode->blueBits);
-//    glfwWindowHint(GLFW_REFRESH_RATE, glfwMode->refreshRate);
+    glfwWindowHint(GLFW_RED_BITS, glfwMode->redBits);
+    glfwWindowHint(GLFW_GREEN_BITS, glfwMode->greenBits);
+    glfwWindowHint(GLFW_BLUE_BITS, glfwMode->blueBits);
+    glfwWindowHint(GLFW_REFRESH_RATE, glfwMode->refreshRate);
 
-//    WIDTH = glfwMode->width;
-//    HEIGHT = glfwMode->height;
+    WIDTH = glfwMode->width;
+    HEIGHT = glfwMode->height;
 
-//    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", glfwMonitor, NULL);
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", glfwMonitor, NULL);
+//    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", nullptr, nullptr);
     glfwMakeContextCurrent(window);
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -493,6 +494,7 @@ int main(int argc, char* argv[])
 
             screenQuad();
         }
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glQueryCounter(queryIDSSAO[1], GL_TIMESTAMP);
 
@@ -504,107 +506,117 @@ int main(int argc, char* argv[])
         glBindFramebuffer(GL_FRAMEBUFFER, postprocessFBO);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-//        // Point light(s) rendering
-//        pointBRDFShader.useShader();
+        // Point light(s) rendering
+        if(lightMode == 1)
+        {
+            pointBRDFShader.useShader();
 
-//        glActiveTexture(GL_TEXTURE0);
-//        glBindTexture(GL_TEXTURE_2D, gPosition);
-//        glActiveTexture(GL_TEXTURE1);
-//        glBindTexture(GL_TEXTURE_2D, gAlbedo);
-//        glActiveTexture(GL_TEXTURE2);
-//        glBindTexture(GL_TEXTURE_2D, gNormal);
-//        glActiveTexture(GL_TEXTURE3);
-//        glBindTexture(GL_TEXTURE_2D, gEffects);
-//        glActiveTexture(GL_TEXTURE4);
-//        glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
-//        glActiveTexture(GL_TEXTURE5);
-//        appartHDR.useTexture();
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, gPosition);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, gAlbedo);
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, gNormal);
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, gEffects);
+            glActiveTexture(GL_TEXTURE4);
+            glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
+            glActiveTexture(GL_TEXTURE5);
+            appartHDR.useTexture();
 
-//        lightPoint1.setLightPosition(lightPointPosition1);
-//        lightPoint2.setLightPosition(lightPointPosition2);
-//        lightPoint3.setLightPosition(lightPointPosition3);
-//        lightPoint1.setLightColor(glm::vec4(lightPointColor1, 1.0f));
-//        lightPoint2.setLightColor(glm::vec4(lightPointColor2, 1.0f));
-//        lightPoint3.setLightColor(glm::vec4(lightPointColor3, 1.0f));
-//        lightPoint1.setLightRadius(lightPointRadius1);
-//        lightPoint2.setLightRadius(lightPointRadius2);
-//        lightPoint3.setLightRadius(lightPointRadius3);
+            lightPoint1.setLightPosition(lightPointPosition1);
+            lightPoint2.setLightPosition(lightPointPosition2);
+            lightPoint3.setLightPosition(lightPointPosition3);
+            lightPoint1.setLightColor(glm::vec4(lightPointColor1, 1.0f));
+            lightPoint2.setLightColor(glm::vec4(lightPointColor2, 1.0f));
+            lightPoint3.setLightColor(glm::vec4(lightPointColor3, 1.0f));
+            lightPoint1.setLightRadius(lightPointRadius1);
+            lightPoint2.setLightRadius(lightPointRadius2);
+            lightPoint3.setLightRadius(lightPointRadius3);
 
-//        for(int i = 0; i < Light::lightPointList.size(); i++)
-//        {
-//            Light::lightPointList[i].renderToShader(pointBRDFShader, camera);
-//        }
+            for(int i = 0; i < Light::lightPointList.size(); i++)
+            {
+                Light::lightPointList[i].renderToShader(pointBRDFShader, camera);
+            }
 
-//        glUniformMatrix4fv(glGetUniformLocation(pointBRDFShader.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
-//        glUniformMatrix4fv(glGetUniformLocation(pointBRDFShader.Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
-//        glUniform1f(glGetUniformLocation(pointBRDFShader.Program, "materialRoughness"), materialRoughness);
-//        glUniform1f(glGetUniformLocation(pointBRDFShader.Program, "materialMetallicity"), materialMetallicity);
-//        glUniform3f(glGetUniformLocation(pointBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
-//        glUniform1f(glGetUniformLocation(pointBRDFShader.Program, "ambientIntensity"), ambientIntensity);
-//        glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gBufferView"), gBufferView);
+            glUniformMatrix4fv(glGetUniformLocation(pointBRDFShader.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
+            glUniformMatrix4fv(glGetUniformLocation(pointBRDFShader.Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
+            glUniform1f(glGetUniformLocation(pointBRDFShader.Program, "materialRoughness"), materialRoughness);
+            glUniform1f(glGetUniformLocation(pointBRDFShader.Program, "materialMetallicity"), materialMetallicity);
+            glUniform3f(glGetUniformLocation(pointBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
+            glUniform1f(glGetUniformLocation(pointBRDFShader.Program, "ambientIntensity"), ambientIntensity);
+            glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gBufferView"), gBufferView);
+        }
 
-//        // Directional light(s) rendering
-//        directionalBRDFShader.useShader();
+        // Directional light(s) rendering
+        else if(lightMode == 2)
+        {
+            directionalBRDFShader.useShader();
 
-//        glActiveTexture(GL_TEXTURE0);
-//        glBindTexture(GL_TEXTURE_2D, gPosition);
-//        glActiveTexture(GL_TEXTURE1);
-//        glBindTexture(GL_TEXTURE_2D, gAlbedo);
-//        glActiveTexture(GL_TEXTURE2);
-//        glBindTexture(GL_TEXTURE_2D, gNormal);
-//        glActiveTexture(GL_TEXTURE3);
-//        glBindTexture(GL_TEXTURE_2D, gEffects);
-//        glActiveTexture(GL_TEXTURE4);
-//        glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
-//        glActiveTexture(GL_TEXTURE5);
-//        appartHDR.useTexture();
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, gPosition);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, gAlbedo);
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, gNormal);
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, gEffects);
+            glActiveTexture(GL_TEXTURE4);
+            glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
+            glActiveTexture(GL_TEXTURE5);
+            appartHDR.useTexture();
 
-//        lightDirectional1.setLightColor(glm::vec4(lightDirectionalColor1, 1.0f));
+            lightDirectional1.setLightColor(glm::vec4(lightDirectionalColor1, 1.0f));
 
-//        for(int i = 0; i < Light::lightDirectionalList.size(); i++)
-//        {
-//            Light::lightDirectionalList[i].renderToShader(directionalBRDFShader, camera);
-//        }
+            for(int i = 0; i < Light::lightDirectionalList.size(); i++)
+            {
+                Light::lightDirectionalList[i].renderToShader(directionalBRDFShader, camera);
+            }
 
-//        glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
-//        glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
-//        glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "materialRoughness"), materialRoughness);
-//        glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "materialMetallicity"), materialMetallicity);
-//        glUniform3f(glGetUniformLocation(directionalBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
-//        glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "ambientIntensity"), ambientIntensity);
-//        glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gBufferView"), gBufferView);
+            glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
+            glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
+            glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "materialRoughness"), materialRoughness);
+            glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "materialMetallicity"), materialMetallicity);
+            glUniform3f(glGetUniformLocation(directionalBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
+            glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "ambientIntensity"), ambientIntensity);
+            glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gBufferView"), gBufferView);
+
+        }
 
         // Environment light rendering
-        environmentBRDFShader.useShader();
+        else if(lightMode == 3)
+        {
+            environmentBRDFShader.useShader();
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, gPosition);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, gAlbedo);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, gNormal);
-        glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, gEffects);
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
-        glActiveTexture(GL_TEXTURE5);
-        appartHDR.useTexture();
-        glActiveTexture(GL_TEXTURE6);
-        appartIrradianceHDR.useTexture();
-//        glActiveTexture(GL_TEXTURE10);
-//        glBindTexture(GL_TEXTURE_2D, prefilterBuffer);
-//        glActiveTexture(GL_TEXTURE11);
-//        glBindTexture(GL_TEXTURE_2D, integrateBuffer);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, gPosition);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, gAlbedo);
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, gNormal);
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, gEffects);
+            glActiveTexture(GL_TEXTURE4);
+            glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
+            glActiveTexture(GL_TEXTURE5);
+            appartHDR.useTexture();
+            glActiveTexture(GL_TEXTURE6);
+            appartIrradianceHDR.useTexture();
+//            glActiveTexture(GL_TEXTURE10);
+//            glBindTexture(GL_TEXTURE_2D, prefilterBuffer);
+//            glActiveTexture(GL_TEXTURE11);
+//            glBindTexture(GL_TEXTURE_2D, integrateBuffer);
 
-        glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
-        glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
-        glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniform1f(glGetUniformLocation(environmentBRDFShader.Program, "materialRoughness"), materialRoughness);
-        glUniform1f(glGetUniformLocation(environmentBRDFShader.Program, "materialMetallicity"), materialMetallicity);
-        glUniform3f(glGetUniformLocation(environmentBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
-        glUniform1f(glGetUniformLocation(environmentBRDFShader.Program, "ambientIntensity"), ambientIntensity);
-        glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "gBufferView"), gBufferView);
-        glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "brdfMaxSamples"), brdfMaxSamples);
+            glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
+            glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
+            glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+            glUniform1f(glGetUniformLocation(environmentBRDFShader.Program, "materialRoughness"), materialRoughness);
+            glUniform1f(glGetUniformLocation(environmentBRDFShader.Program, "materialMetallicity"), materialMetallicity);
+            glUniform3f(glGetUniformLocation(environmentBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
+            glUniform1f(glGetUniformLocation(environmentBRDFShader.Program, "ambientIntensity"), ambientIntensity);
+            glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "gBufferView"), gBufferView);
+            glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "brdfMaxSamples"), brdfMaxSamples);
+        }
 
         screenQuad();
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -757,37 +769,75 @@ void imGuiSetup()
             ImGui::SliderFloat("Metalness", &materialMetallicity, 0.0f, 1.0f);
             ImGui::SliderFloat3("F0", (float*)&materialF0, 0.0f, 1.0f);
             ImGui::SliderFloat("Ambient Intensity", &ambientIntensity, 0.0f, 1.0f);
-            ImGui::SliderInt("BRDF Max Samples", &brdfMaxSamples, 1, 1024);
 
             ImGui::TreePop();
         }
 
         if (ImGui::TreeNode("Lights"))
         {
-            if (ImGui::TreeNode("Positions"))
+            if (ImGui::TreeNode("Mode"))
             {
-                ImGui::SliderFloat3("Point 1", (float*)&lightPointPosition1, -5.0f, 5.0f);
-                ImGui::SliderFloat3("Point 2", (float*)&lightPointPosition2, -5.0f, 5.0f);
-                ImGui::SliderFloat3("Point 3", (float*)&lightPointPosition3, -5.0f, 5.0f);
+                ImGui::RadioButton("Point", &lightMode, 1);
+                ImGui::RadioButton("Directional", &lightMode, 2);
+                ImGui::RadioButton("IBL", &lightMode, 3);
 
                 ImGui::TreePop();
             }
 
-            if (ImGui::TreeNode("Colors"))
+            if (ImGui::TreeNode("Point"))
             {
-                ImGui::ColorEdit3("Point 1", (float*)&lightPointColor1);
-                ImGui::ColorEdit3("Point 2", (float*)&lightPointColor2);
-                ImGui::ColorEdit3("Point 3", (float*)&lightPointColor3);
-                ImGui::ColorEdit3("Direct. 1", (float*)&lightDirectionalColor1);
+                if (ImGui::TreeNode("Positions"))
+                {
+                    ImGui::SliderFloat3("Point 1", (float*)&lightPointPosition1, -5.0f, 5.0f);
+                    ImGui::SliderFloat3("Point 2", (float*)&lightPointPosition2, -5.0f, 5.0f);
+                    ImGui::SliderFloat3("Point 3", (float*)&lightPointPosition3, -5.0f, 5.0f);
+
+                    ImGui::TreePop();
+                }
+
+                if (ImGui::TreeNode("Colors"))
+                {
+                    ImGui::ColorEdit3("Point 1", (float*)&lightPointColor1);
+                    ImGui::ColorEdit3("Point 2", (float*)&lightPointColor2);
+                    ImGui::ColorEdit3("Point 3", (float*)&lightPointColor3);
+
+                    ImGui::TreePop();
+                }
+
+                if (ImGui::TreeNode("Radius"))
+                {
+                    ImGui::SliderFloat("Point 1", &lightPointRadius1, 0.0f, 10.0f);
+                    ImGui::SliderFloat("Point 2", &lightPointRadius2, 0.0f, 10.0f);
+                    ImGui::SliderFloat("Point 3", &lightPointRadius3, 0.0f, 10.0f);
+
+                    ImGui::TreePop();
+                }
 
                 ImGui::TreePop();
             }
 
-            if (ImGui::TreeNode("Radius"))
+            if (ImGui::TreeNode("Directional"))
             {
-                ImGui::SliderFloat("Point 1", &lightPointRadius1, 0.0f, 10.0f);
-                ImGui::SliderFloat("Point 2", &lightPointRadius2, 0.0f, 10.0f);
-                ImGui::SliderFloat("Point 3", &lightPointRadius3, 0.0f, 10.0f);
+                if (ImGui::TreeNode("Directions"))
+                {
+
+
+                    ImGui::TreePop();
+                }
+
+                if (ImGui::TreeNode("Colors"))
+                {
+                    ImGui::ColorEdit3("Direct. 1", (float*)&lightDirectionalColor1);
+
+                    ImGui::TreePop();
+                }
+
+                ImGui::TreePop();
+            }
+
+            if (ImGui::TreeNode("IBL"))
+            {
+                ImGui::SliderInt("BRDF Max Samples", &brdfMaxSamples, 1, 1024);
 
                 ImGui::TreePop();
             }
