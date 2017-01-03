@@ -147,8 +147,8 @@ Texture ironNormal;
 Texture ironRoughness;
 Texture ironMetalness;
 Texture ironAO;
-Texture appartHDR;
-Texture appartIrradianceHDR;
+Texture envMapHDR;
+Texture envMapIrradianceHDR;
 Texture brdfLUT;
 
 Material pbrMat;
@@ -228,8 +228,8 @@ int main(int argc, char* argv[])
     ironMetalness.setTexture("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
     ironAO.setTexture("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO", true);
 
-    appartHDR.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);
-    appartIrradianceHDR.setTextureHDR("resources/textures/hdr/appart_irradiance.hdr", "appartIrradianceHDR", true);
+    envMapHDR.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);
+    envMapIrradianceHDR.setTextureHDR("resources/textures/hdr/appart_irradiance.hdr", "appartIrradianceHDR", true);
 
 
     //-----------
@@ -522,7 +522,7 @@ int main(int argc, char* argv[])
             glActiveTexture(GL_TEXTURE4);
             glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
             glActiveTexture(GL_TEXTURE5);
-            appartHDR.useTexture();
+            envMapHDR.useTexture();
 
             lightPoint1.setLightPosition(lightPointPosition1);
             lightPoint2.setLightPosition(lightPointPosition2);
@@ -564,7 +564,7 @@ int main(int argc, char* argv[])
             glActiveTexture(GL_TEXTURE4);
             glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
             glActiveTexture(GL_TEXTURE5);
-            appartHDR.useTexture();
+            envMapHDR.useTexture();
 
             lightDirectional1.setLightColor(glm::vec4(lightDirectionalColor1, 1.0f));
 
@@ -599,9 +599,9 @@ int main(int argc, char* argv[])
             glActiveTexture(GL_TEXTURE4);
             glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
             glActiveTexture(GL_TEXTURE5);
-            appartHDR.useTexture();
+            envMapHDR.useTexture();
             glActiveTexture(GL_TEXTURE6);
-            appartIrradianceHDR.useTexture();
+            envMapIrradianceHDR.useTexture();
 //            glActiveTexture(GL_TEXTURE10);
 //            glBindTexture(GL_TEXTURE_2D, prefilterBuffer);
 //            glActiveTexture(GL_TEXTURE11);
@@ -838,6 +838,29 @@ void imGuiSetup()
             if (ImGui::TreeNode("IBL"))
             {
                 ImGui::SliderInt("BRDF Max Samples", &brdfMaxSamples, 1, 1024);
+
+                if (ImGui::TreeNode("Environment map"))
+                {
+                    if (ImGui::Button("Appartment"))
+                    {
+                        envMapHDR.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);
+                        envMapIrradianceHDR.setTextureHDR("resources/textures/hdr/appart_irradiance.hdr", "appartIrradianceHDR", true);
+                    }
+
+                    if (ImGui::Button("Pisa"))
+                    {
+                        envMapHDR.setTextureHDR("resources/textures/hdr/pisa.hdr", "pisaHDR", true);
+                        envMapIrradianceHDR.setTextureHDR("resources/textures/hdr/pisa_irradiance.hdr", "pisaIrradianceHDR", true);
+                    }
+
+                    if (ImGui::Button("Canyon"))
+                    {
+                        envMapHDR.setTextureHDR("resources/textures/hdr/canyon.hdr", "canyonHDR", true);
+                        envMapIrradianceHDR.setTextureHDR("resources/textures/hdr/canyon_irradiance.hdr", "canyonIrradianceHDR", true);
+                    }
+
+                    ImGui::TreePop();
+                }
 
                 ImGui::TreePop();
             }
@@ -1108,7 +1131,7 @@ void iblSetup()
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, gAlbedo);
     glActiveTexture(GL_TEXTURE3);
-    appartHDR.useTexture();
+    envMapHDR.useTexture();
 
 //    glUniform1f(glGetUniformLocation(prefilterBRDFShader.Program, "materialRoughness"), materialRoughness);
 //    glUniformMatrix4fv(glGetUniformLocation(prefilterBRDFShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
