@@ -7,7 +7,7 @@ Screenshots
 
 * Example using Image-Based Lighting :
 
-![](http://image.noelshack.com/fichiers/2016/52/1483136816-glengine1.png)
+![](http://image.noelshack.com/fichiers/2017/01/1483649757-glengine1.png)
 * G-Buffer structure :
 
 ![](http://image.noelshack.com/fichiers/2016/52/1483180466-glengine2.png)

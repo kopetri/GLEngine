@@ -573,8 +573,8 @@ int main(int argc, char* argv[])
                 Light::lightDirectionalList[i].renderToShader(directionalBRDFShader, camera);
             }
 
-            glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
-            glUniformMatrix4fv(glGetUniformLocation(environmentBRDFShader.Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
+            glUniformMatrix4fv(glGetUniformLocation(directionalBRDFShader.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
+            glUniformMatrix4fv(glGetUniformLocation(directionalBRDFShader.Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
             glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "materialRoughness"), materialRoughness);
             glUniform1f(glGetUniformLocation(directionalBRDFShader.Program, "materialMetallicity"), materialMetallicity);
             glUniform3f(glGetUniformLocation(directionalBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
