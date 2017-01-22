@@ -2,6 +2,8 @@ GLEngine
 ======
 GLEngine is a C++ OpenGL graphics engine which aimed to be a skill, knowledge and possibly graphical showcase. It will support many graphical features, from something as basic as textures and shaders to deferred rendering, PBR and such.
 
+Link to the demo reel : https://vimeo.com/200574427
+
 Screenshots
 ------
 
