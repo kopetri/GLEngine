@@ -73,10 +73,11 @@ GLuint prefilterFBO, integrateFBO, prefilterBuffer, integrateBuffer;
 GLint gBufferView = 1;
 GLint tonemappingMode = 1;
 GLint lightMode = 1;
+GLint attenuationMode = 2;
 GLint ssaoKernelSize = 32;
 GLint ssaoNoiseSize = 4;
 GLint ssaoBlurSize = 4;
-GLint motionBlurMaxSamples = 20;
+GLint motionBlurMaxSamples = 32;
 GLint brdfMaxSamples = 32;
 
 GLfloat lastX = WIDTH / 2;
@@ -91,7 +92,7 @@ GLfloat deltaForwardTime = 0.0f;
 GLfloat deltaGUITime = 0.0f;
 GLfloat materialRoughness = 0.01f;
 GLfloat materialMetallicity = 0.02f;
-GLfloat ambientIntensity = 0.01f;
+GLfloat ambientIntensity = 0.005f;
 GLfloat ssaoRadius = 1.0f;
 GLfloat ssaoPower = 1.0f;
 GLfloat ssaoBias = 0.025f;
@@ -101,6 +102,7 @@ GLfloat lightPointRadius3 = 3.0f;
 GLfloat cameraAperture = 16.0f;
 GLfloat cameraShutterSpeed = 0.5f;
 GLfloat cameraISO = 1000.0f;
+GLfloat modelRotationSpeed = 5.0f;
 
 bool cameraMode;
 bool ssaoMode = false;
@@ -113,7 +115,6 @@ bool keys[1024];
 
 glm::vec3 albedoColor = glm::vec3(1.0f);
 glm::vec3 materialF0 = glm::vec3(0.04f);  // UE4 dielectric
-//glm::vec3 materialF0 = glm::vec3(0.56f, 0.57f, 0.58f);  // Iron
 //glm::vec3 materialF0 = glm::vec3(1.0f, 0.72f, 0.29f);  // Gold
 glm::vec3 lightPointPosition1 = glm::vec3(1.5f, 0.75f, 1.0f);
 glm::vec3 lightPointPosition2 = glm::vec3(-1.5f, 1.0f, 1.0f);
@@ -122,6 +123,9 @@ glm::vec3 lightPointColor1 = glm::vec3(1.0f);
 glm::vec3 lightPointColor2 = glm::vec3(1.0f);
 glm::vec3 lightPointColor3 = glm::vec3(1.0f);
 glm::vec3 lightDirectionalColor1 = glm::vec3(1.0f);
+glm::vec3 modelPosition = glm::vec3(0.0f);
+glm::vec3 modelRotationAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+glm::vec3 modelScale = glm::vec3(0.1f);
 
 glm::mat4 projViewModel;
 glm::mat4 prevProjViewModel = projViewModel;
@@ -142,18 +146,18 @@ Shader ssaoShader;
 Shader ssaoBlurShader;
 Shader firstpassShader;
 
-Texture ironAlbedo;
-Texture ironNormal;
-Texture ironRoughness;
-Texture ironMetalness;
-Texture ironAO;
+Texture objectAlbedo;
+Texture objectNormal;
+Texture objectRoughness;
+Texture objectMetalness;
+Texture objectAO;
 Texture envMapHDR;
 Texture envMapIrradianceHDR;
 Texture brdfLUT;
 
 Material pbrMat;
 
-Model shaderballModel;
+Model objectModel;
 
 Light lightPoint1;
 Light lightPoint2;
@@ -222,11 +226,11 @@ int main(int argc, char* argv[])
     //-----------
     // Textures(s)
     //-----------
-    ironAlbedo.setTexture("resources/textures/pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true);
-    ironNormal.setTexture("resources/textures/pbr/rustediron/rustediron_normal.png", "ironNormal", true);
-    ironRoughness.setTexture("resources/textures/pbr/rustediron/rustediron_roughness.png", "ironRoughness", true);
-    ironMetalness.setTexture("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
-    ironAO.setTexture("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO", true);
+    objectAlbedo.setTexture("resources/textures/pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true);
+    objectNormal.setTexture("resources/textures/pbr/rustediron/rustediron_normal.png", "ironNormal", true);
+    objectRoughness.setTexture("resources/textures/pbr/rustediron/rustediron_roughness.png", "ironRoughness", true);
+    objectMetalness.setTexture("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
+    objectAO.setTexture("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO", true);
 
     envMapHDR.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);
     envMapIrradianceHDR.setTextureHDR("resources/textures/hdr/appart_irradiance.hdr", "appartIrradianceHDR", true);
@@ -251,7 +255,7 @@ int main(int argc, char* argv[])
     //---------
     // Model(s)
     //---------
-    shaderballModel.loadModel("resources/models/shaderball/shaderball.obj");
+    objectModel.loadModel("resources/models/shaderball/shaderball.obj");
 
 
     //---------------
@@ -409,11 +413,11 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
 
-        GLfloat rotationAngle = glfwGetTime()/5.0f * 5.0f;
+        GLfloat rotationAngle = glfwGetTime()/5.0f * modelRotationSpeed;
         model = glm::mat4();
-        model = glm::translate(model, glm::vec3(0.0f));
-        model = glm::rotate(model, rotationAngle, glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(0.1f, 0.1f, 0.1f));
+        model = glm::translate(model, modelPosition);
+        model = glm::rotate(model, rotationAngle, modelRotationAxis);
+        model = glm::scale(model, modelScale);
 
         projViewModel = projection * view * model;
 
@@ -426,22 +430,22 @@ int main(int argc, char* argv[])
 //        pbrMat.renderToShader();
 
         glActiveTexture(GL_TEXTURE0);
-        ironAlbedo.useTexture();
+        objectAlbedo.useTexture();
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "texAlbedo"), 0);
         glActiveTexture(GL_TEXTURE1);
-        ironNormal.useTexture();
+        objectNormal.useTexture();
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "texNormal"), 1);
         glActiveTexture(GL_TEXTURE2);
-        ironRoughness.useTexture();
+        objectRoughness.useTexture();
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "texRoughness"), 2);
         glActiveTexture(GL_TEXTURE3);
-        ironMetalness.useTexture();
+        objectMetalness.useTexture();
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "texMetalness"), 3);
         glActiveTexture(GL_TEXTURE4);
-        ironAO.useTexture();
+        objectAO.useTexture();
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "texAO"), 4);
 
-        shaderballModel.Draw();
+        objectModel.Draw();
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glQueryCounter(queryIDGeometry[1], GL_TIMESTAMP);
@@ -546,6 +550,7 @@ int main(int argc, char* argv[])
             glUniform3f(glGetUniformLocation(pointBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
             glUniform1f(glGetUniformLocation(pointBRDFShader.Program, "ambientIntensity"), ambientIntensity);
             glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gBufferView"), gBufferView);
+            glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "attenuationMode"), attenuationMode);
         }
 
         // Directional light(s) rendering
@@ -665,17 +670,20 @@ int main(int argc, char* argv[])
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // Shape(s) rendering
-//        lampShader.useShader();
-//        glUniformMatrix4fv(glGetUniformLocation(lampShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-//        glUniformMatrix4fv(glGetUniformLocation(lampShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        if(lightMode == 1)
+        {
+            lampShader.useShader();
+            glUniformMatrix4fv(glGetUniformLocation(lampShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+            glUniformMatrix4fv(glGetUniformLocation(lampShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
 
-//        for(int i = 0; i < Light::lightPointList.size(); i++)
-//        {
-//            glUniform4f(glGetUniformLocation(lampShader.Program, "lightColor"), Light::lightPointList[i].getLightColor().r, Light::lightPointList[i].getLightColor().g, Light::lightPointList[i].getLightColor().b, Light::lightPointList[i].getLightColor().a);
+            for(int i = 0; i < Light::lightPointList.size(); i++)
+            {
+                glUniform4f(glGetUniformLocation(lampShader.Program, "lightColor"), Light::lightPointList[i].getLightColor().r, Light::lightPointList[i].getLightColor().g, Light::lightPointList[i].getLightColor().b, Light::lightPointList[i].getLightColor().a);
 
-//            if(Light::lightPointList[i].isMesh())
-//                Light::lightPointList[i].lightMesh.drawShape(lampShader, view, projection, camera);
-//        }
+                if(Light::lightPointList[i].isMesh())
+                    Light::lightPointList[i].lightMesh.drawShape(lampShader, view, projection, camera);
+            }
+        }
         glQueryCounter(queryIDForward[1], GL_TIMESTAMP);
 
 
@@ -759,6 +767,7 @@ void imGuiSetup()
     ImGui_ImplGlfwGL3_NewFrame();
 
     ImGui::Begin("GLEngine", &guiIsOpen, ImVec2(0, 0), 0.5f, ImGuiWindowFlags_AlwaysUseWindowPadding | ImGuiWindowFlags_NoSavedSettings);
+    ImGui::SetWindowSize(ImVec2(350, HEIGHT));
 
     if (ImGui::CollapsingHeader("Rendering", 0, true, true))
     {
@@ -773,7 +782,7 @@ void imGuiSetup()
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Lights"))
+        if (ImGui::TreeNode("Lighting"))
         {
             if (ImGui::TreeNode("Mode"))
             {
@@ -786,7 +795,7 @@ void imGuiSetup()
 
             if (ImGui::TreeNode("Point"))
             {
-                if (ImGui::TreeNode("Positions"))
+                if (ImGui::TreeNode("Position"))
                 {
                     ImGui::SliderFloat3("Point 1", (float*)&lightPointPosition1, -5.0f, 5.0f);
                     ImGui::SliderFloat3("Point 2", (float*)&lightPointPosition2, -5.0f, 5.0f);
@@ -795,7 +804,7 @@ void imGuiSetup()
                     ImGui::TreePop();
                 }
 
-                if (ImGui::TreeNode("Colors"))
+                if (ImGui::TreeNode("Color"))
                 {
                     ImGui::ColorEdit3("Point 1", (float*)&lightPointColor1);
                     ImGui::ColorEdit3("Point 2", (float*)&lightPointColor2);
@@ -813,19 +822,27 @@ void imGuiSetup()
                     ImGui::TreePop();
                 }
 
+                if (ImGui::TreeNode("Attenuation"))
+                {
+                    ImGui::RadioButton("Quadratic", &attenuationMode, 1);
+                    ImGui::RadioButton("UE4", &attenuationMode, 2);
+
+                    ImGui::TreePop();
+                }
+
                 ImGui::TreePop();
             }
 
             if (ImGui::TreeNode("Directional"))
             {
-                if (ImGui::TreeNode("Directions"))
+                if (ImGui::TreeNode("Direction"))
                 {
 
 
                     ImGui::TreePop();
                 }
 
-                if (ImGui::TreeNode("Colors"))
+                if (ImGui::TreeNode("Color"))
                 {
                     ImGui::ColorEdit3("Direct. 1", (float*)&lightDirectionalColor1);
 
@@ -915,6 +932,79 @@ void imGuiSetup()
             ImGui::SliderFloat("Aperture", &cameraAperture, 1.0f, 32.0f);
             ImGui::SliderFloat("Shutter Speed", &cameraShutterSpeed, 0.001f, 1.0f);
             ImGui::SliderFloat("ISO", &cameraISO, 100.0f, 3200.0f);
+
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNode("Object"))
+        {
+            ImGui::SliderFloat3("Position", (float*)&modelPosition, -5.0f, 5.0f);
+            ImGui::SliderFloat("Rotation Speed", &modelRotationSpeed, 0.0f, 50.0f);
+            ImGui::SliderFloat3("Rotation Axis", (float*)&modelRotationAxis, 0.0f, 1.0f);
+
+            if (ImGui::TreeNode("Model"))
+            {
+                if (ImGui::Button("Sphere"))
+                {
+                    objectModel.~Model();
+                    objectModel.loadModel("resources/models/sphere/sphere.obj");
+                    modelScale = glm::vec3(0.6f);
+                }
+
+                if (ImGui::Button("Teapot"))
+                {
+                    objectModel.~Model();
+                    objectModel.loadModel("resources/models/teapot/teapot.obj");
+                    modelScale = glm::vec3(0.6f);
+                }
+
+                if (ImGui::Button("Shader ball"))
+                {
+                    objectModel.~Model();
+                    objectModel.loadModel("resources/models/shaderball/shaderball.obj");
+                    modelScale = glm::vec3(0.1f);
+                }
+
+                ImGui::TreePop();
+            }
+
+            if (ImGui::TreeNode("Material"))
+            {
+                if (ImGui::Button("Rusted iron"))
+                {
+                    objectAlbedo.setTexture("resources/textures/pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true);
+                    objectNormal.setTexture("resources/textures/pbr/rustediron/rustediron_normal.png", "ironNormal", true);
+                    objectRoughness.setTexture("resources/textures/pbr/rustediron/rustediron_roughness.png", "ironRoughness", true);
+                    objectMetalness.setTexture("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
+                    objectAO.setTexture("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO", true);
+
+                    materialF0 = glm::vec3(0.04f);
+                }
+
+                if (ImGui::Button("Gold"))
+                {
+                    objectAlbedo.setTexture("resources/textures/pbr/gold/gold_albedo.png", "goldAlbedo", true);
+                    objectNormal.setTexture("resources/textures/pbr/gold/gold_normal.png", "goldNormal", true);
+                    objectRoughness.setTexture("resources/textures/pbr/gold/gold_roughness.png", "goldRoughness", true);
+                    objectMetalness.setTexture("resources/textures/pbr/gold/gold_metalness.png", "goldMetalness", true);
+                    objectAO.setTexture("resources/textures/pbr/gold/gold_ao.png", "goldAO", true);
+
+                    materialF0 = glm::vec3(1.0f, 0.72f, 0.29f);
+                }
+
+                if (ImGui::Button("Woodfloor"))
+                {
+                    objectAlbedo.setTexture("resources/textures/pbr/woodfloor/woodfloor_albedo.png", "woodfloorAlbedo", true);
+                    objectNormal.setTexture("resources/textures/pbr/woodfloor/woodfloor_normal.png", "woodfloorNormal", true);
+                    objectRoughness.setTexture("resources/textures/pbr/woodfloor/woodfloor_roughness.png", "woodfloorRoughness", true);
+                    objectMetalness.setTexture("resources/textures/pbr/woodfloor/woodfloor_metalness.png", "woodfloorMetalness", true);
+                    objectAO.setTexture("resources/textures/pbr/woodfloor/woodfloor_ao.png", "woodfloorAO", true);
+
+                    materialF0 = glm::vec3(0.04f);
+                }
+
+                ImGui::TreePop();
+            }
 
             ImGui::TreePop();
         }

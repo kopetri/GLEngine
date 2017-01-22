@@ -75,7 +75,7 @@ void main()
         vec3 R = normalize(reflect(- V, N));
 
         // Ambient component computation
-        vec3 ambient = ao * albedo * vec3(ambientIntensity);    // While we don't have IBL...
+        vec3 ambient = ao * albedo * vec3(ambientIntensity);
 
         // Light source independent BRDF term(s)
         float NdotV = saturate(dot(N, V));
@@ -100,7 +100,6 @@ void main()
             float NdotL = saturate(dot(N, L));
 
             // Diffuse component computation
-//            diffuse = albedo/PI - (albedo/PI) * metalness;    // The right way to compute diffuse but any surface that should reflect the environment would appear black at the moment...
             diffuse = (albedo/PI);
 
             // Disney diffuse term

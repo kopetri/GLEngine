@@ -32,6 +32,7 @@ vec3 FilmicTM(vec3 color);
 vec3 UnchartedTM(vec3 color);
 float computeSOBExposure(float aperture, float shutterSpeed, float iso);
 vec3 computeFxaa();
+vec3 computeMotionBlur(vec3 colorVector);
 
 
 void main()
@@ -40,42 +41,37 @@ void main()
 
     if(gBufferView == 1)
     {
+        // FXAA computation
         if(fxaaMode)
             color = computeFxaa();  // Don't know if applying FXAA first is a good idea, especially with effects such as motion blur and DoF...
         else
             color = texture(screenTexture, TexCoords).rgb;
 
+        // Motion Blur computation
         if(motionBlurMode)
-        {
-            vec2 texelSize = 1.0f / vec2(textureSize(screenTexture, 0));
+            color = computeMotionBlur(color);
 
-            vec2 velocity = texture(gEffects, TexCoords).gb;
-            velocity *= motionBlurScale;
-
-            float fragSpeed = length(velocity / texelSize);
-            int numSamples = clamp(int(fragSpeed), 1, motionBlurMaxSamples);
-
-            for (int i = 1; i < numSamples; ++i)
-            {
-                vec2 blurOffset = velocity * (float(i) / float(numSamples - 1) - 0.5f);
-                color += texture(screenTexture, TexCoords + blurOffset).rgb;
-            }
-
-            color /= float(numSamples);
-        }
-
+        // SSAO computation
         if(ssaoMode)
         {
             float ssao = texture(ssao, TexCoords).r;
             color *= ssao;
         }
 
+        // Exposure computation
         color *= computeSOBExposure(cameraAperture, cameraShutterSpeed, cameraISO);
 
+        // Tonemapping computation
         if(tonemappingMode == 1)
+        {
             color = ReinhardTM(color);
+            colorOutput = vec4(colorSRGB(color), 1.0f);
+        }
         else if(tonemappingMode == 2)
+        {
             color = FilmicTM(color);
+            colorOutput = vec4(color, 1.0f);
+        }
         else if(tonemappingMode == 3)
         {
             float W = 11.2f;
@@ -83,14 +79,8 @@ void main()
             vec3 whiteScale = 1.0f / UnchartedTM(vec3(W));
 
             color *= whiteScale;
-        }
-
-
-        if(tonemappingMode == 2)
-            colorOutput = vec4(color, 1.0f);
-        else
             colorOutput = vec4(colorSRGB(color), 1.0f);
-
+        }
     }
 
     else    // No tonemapping or linear/sRGB conversion if we want to visualize the different buffers
@@ -141,6 +131,25 @@ vec3 computeFxaa()
         return vec3(resultA);
     else
         return vec3(resultB);
+}
+
+vec3 computeMotionBlur(vec3 colorVector)
+{
+    vec2 texelSize = 1.0f / vec2(textureSize(screenTexture, 0));
+
+    vec2 velocity = texture(gEffects, TexCoords).gb;
+    velocity *= motionBlurScale;
+
+    float fragSpeed = length(velocity / texelSize);
+    int numSamples = clamp(int(fragSpeed), 1, motionBlurMaxSamples);
+
+    for (int i = 1; i < numSamples; ++i)
+    {
+        vec2 blurOffset = velocity * (float(i) / float(numSamples - 1) - 0.5f);
+        colorVector += texture(screenTexture, TexCoords + blurOffset).rgb;
+    }
+
+    return colorVector /= float(numSamples);
 }
 
 
