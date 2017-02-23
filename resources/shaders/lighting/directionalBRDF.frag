@@ -22,7 +22,7 @@ uniform sampler2D gAlbedo;
 uniform sampler2D gNormal;
 uniform sampler2D gEffects;
 
-uniform sampler2D ssao;
+uniform sampler2D sao;
 uniform sampler2D envMap;
 
 uniform int gBufferView;
@@ -56,7 +56,7 @@ void main()
     vec2 velocity = texture(gEffects, TexCoords).gb;
     float depth = texture(gPosition, TexCoords).a;
 
-    float ssao = texture(ssao, TexCoords).r;
+    float sao = texture(sao, TexCoords).r;
     vec3 envColor = texture(envMap, getSphericalCoord(normalize(envMapCoords))).rgb;
 
     vec3 color = vec3(0.0f);
@@ -150,9 +150,9 @@ void main()
     else if (gBufferView == 7)
         colorOutput = vec4(vec3(depth/50.0f), 1.0f);
 
-    // SSAO buffer
+    // SAO buffer
     else if (gBufferView == 8)
-        colorOutput = vec4(vec3(ssao), 1.0f);
+        colorOutput = vec4(vec3(sao), 1.0f);
 
     // Velocity buffer
     else if (gBufferView == 9)

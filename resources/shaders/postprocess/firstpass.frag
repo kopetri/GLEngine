@@ -9,13 +9,13 @@ float FXAA_REDUCE_MIN = 1.0f/128.0f;
 float middleGrey = 0.18f;
 
 uniform sampler2D screenTexture;
-uniform sampler2D ssao;
+uniform sampler2D sao;
 uniform sampler2D gEffects;
 
 uniform int gBufferView;
 uniform int motionBlurMaxSamples;
 uniform int tonemappingMode;
-uniform bool ssaoMode;
+uniform bool saoMode;
 uniform bool fxaaMode;
 uniform bool motionBlurMode;
 uniform float cameraAperture;
@@ -51,11 +51,11 @@ void main()
         if(motionBlurMode)
             color = computeMotionBlur(color);
 
-        // SSAO computation
-        if(ssaoMode)
+        // SAO computation
+        if(saoMode)
         {
-            float ssao = texture(ssao, TexCoords).r;
-            color *= ssao;
+            float sao = texture(sao, TexCoords).r;
+            color *= sao;
         }
 
         // Exposure computation

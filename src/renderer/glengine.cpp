@@ -50,7 +50,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void cameraMove();
 void imGuiSetup();
 void gBufferSetup();
-void ssaoSetup();
+void saoSetup();
 void postprocessSetup();
 void iblSetup();
 void screenQuad();
@@ -66,7 +66,7 @@ GLuint HEIGHT = 720;
 
 GLuint screenQuadVAO, screenQuadVBO;
 GLuint gBuffer, zBuffer, gPosition, gNormal, gAlbedo, gEffects;
-GLuint ssaoFBO, ssaoBlurFBO, ssaoBuffer, ssaoBlurBuffer, noiseTexture;
+GLuint saoFBO, saoBlurFBO, saoBuffer, saoBlurBuffer, noiseTexture;
 GLuint postprocessFBO, postprocessBuffer;
 GLuint prefilterFBO, integrateFBO, prefilterBuffer, integrateBuffer;
 
@@ -74,9 +74,9 @@ GLint gBufferView = 1;
 GLint tonemappingMode = 1;
 GLint lightMode = 1;
 GLint attenuationMode = 2;
-GLint ssaoKernelSize = 32;
-GLint ssaoNoiseSize = 4;
-GLint ssaoBlurSize = 4;
+GLint saoSamples = 12;
+GLint saoTurns = 7;
+GLint saoBlurSize = 4;
 GLint motionBlurMaxSamples = 32;
 GLint brdfMaxSamples = 32;
 
@@ -86,26 +86,27 @@ GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 GLfloat deltaGeometryTime = 0.0f;
 GLfloat deltaLightingTime = 0.0f;
-GLfloat deltaSSAOTime = 0.0f;
+GLfloat deltaSAOTime = 0.0f;
 GLfloat deltaPostprocessTime = 0.0f;
 GLfloat deltaForwardTime = 0.0f;
 GLfloat deltaGUITime = 0.0f;
 GLfloat materialRoughness = 0.01f;
 GLfloat materialMetallicity = 0.02f;
 GLfloat ambientIntensity = 0.005f;
-GLfloat ssaoRadius = 1.0f;
-GLfloat ssaoPower = 1.0f;
-GLfloat ssaoBias = 0.025f;
+GLfloat saoRadius = 0.3f;
+GLfloat saoBias = 0.001f;
+GLfloat saoScale = 0.7f;
+GLfloat saoContrast = 0.8f;
 GLfloat lightPointRadius1 = 3.0f;
 GLfloat lightPointRadius2 = 3.0f;
 GLfloat lightPointRadius3 = 3.0f;
 GLfloat cameraAperture = 16.0f;
 GLfloat cameraShutterSpeed = 0.5f;
 GLfloat cameraISO = 1000.0f;
-GLfloat modelRotationSpeed = 5.0f;
+GLfloat modelRotationSpeed = 0.0f;
 
 bool cameraMode;
-bool ssaoMode = false;
+bool saoMode = false;
 bool fxaaMode = false;
 bool motionBlurMode = false;
 bool screenMode = false;
@@ -130,9 +131,6 @@ glm::vec3 modelScale = glm::vec3(0.1f);
 glm::mat4 projViewModel;
 glm::mat4 prevProjViewModel = projViewModel;
 
-std::vector<glm::vec3> ssaoKernel;
-std::vector<glm::vec3> ssaoNoise;
-
 Camera camera(glm::vec3(0.0f, 0.0f, 4.0f));
 
 Shader gBufferShader;
@@ -142,8 +140,8 @@ Shader directionalBRDFShader;
 Shader environmentBRDFShader;
 Shader prefilterBRDFShader;
 Shader integrateBRDFShader;
-Shader ssaoShader;
-Shader ssaoBlurShader;
+Shader saoShader;
+Shader saoBlurShader;
 Shader firstpassShader;
 
 Texture objectAlbedo;
@@ -218,8 +216,8 @@ int main(int argc, char* argv[])
     prefilterBRDFShader.setShader("resources/shaders/lighting/ibl/environmentBRDF.vert", "resources/shaders/lighting/ibl/prefilterBRDF.frag");
     integrateBRDFShader.setShader("resources/shaders/lighting/ibl/environmentBRDF.vert", "resources/shaders/lighting/ibl/integrateBRDF.frag");
 
-    ssaoShader.setShader("resources/shaders/postprocess/ssao.vert", "resources/shaders/postprocess/ssao.frag");
-    ssaoBlurShader.setShader("resources/shaders/postprocess/ssao.vert", "resources/shaders/postprocess/ssaoBlur.frag");
+    saoShader.setShader("resources/shaders/postprocess/ssao.vert", "resources/shaders/postprocess/sao.frag");
+    saoBlurShader.setShader("resources/shaders/postprocess/ssao.vert", "resources/shaders/postprocess/saoBlur.frag");
     firstpassShader.setShader("resources/shaders/postprocess/postprocess.vert", "resources/shaders/postprocess/firstpass.frag");
 
 
@@ -288,7 +286,7 @@ int main(int argc, char* argv[])
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gAlbedo"), 1);
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gNormal"), 2);
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "gEffects"), 3);
-    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "ssao"), 4);
+    glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "sao"), 4);
     glUniform1i(glGetUniformLocation(pointBRDFShader.Program, "envMap"), 5);
 
     directionalBRDFShader.useShader();
@@ -296,7 +294,7 @@ int main(int argc, char* argv[])
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gAlbedo"), 1);
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gNormal"), 2);
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "gEffects"), 3);
-    glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "ssao"), 4);
+    glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "sao"), 4);
     glUniform1i(glGetUniformLocation(directionalBRDFShader.Program, "envMap"), 5);
 
     environmentBRDFShader.useShader();
@@ -304,7 +302,7 @@ int main(int argc, char* argv[])
     glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "gAlbedo"), 1);
     glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "gNormal"), 2);
     glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "gEffects"), 3);
-    glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "ssao"), 4);
+    glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "sao"), 4);
     glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "envMap"), 5);
     glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "envMapIrradiance"), 6);
 //    glUniform1i(glGetUniformLocation(environmentBRDFShader.Program, "envMapPrefilter"), 7);
@@ -321,13 +319,12 @@ int main(int argc, char* argv[])
 //    glUniform1i(glGetUniformLocation(integrateBRDFShader.Program, "gNormal"), 1);
 //    glUniform1i(glGetUniformLocation(integrateBRDFShader.Program, "gRoughness"), 2);
 
-    ssaoShader.useShader();
-    glUniform1i(glGetUniformLocation(ssaoShader.Program, "gPosition"), 0);
-    glUniform1i(glGetUniformLocation(ssaoShader.Program, "gNormal"), 1);
-    glUniform1i(glGetUniformLocation(ssaoShader.Program, "texNoise"), 2);
+    saoShader.useShader();
+    glUniform1i(glGetUniformLocation(saoShader.Program, "gPosition"), 0);
+    glUniform1i(glGetUniformLocation(saoShader.Program, "gNormal"), 1);
 
     firstpassShader.useShader();
-    glUniform1i(glGetUniformLocation(firstpassShader.Program, "ssao"), 1);
+    glUniform1i(glGetUniformLocation(firstpassShader.Program, "sao"), 1);
     glUniform1i(glGetUniformLocation(firstpassShader.Program, "gEffects"), 2);
 
 
@@ -338,9 +335,9 @@ int main(int argc, char* argv[])
 
 
     //------------
-    // SSAO setup
+    // SAO setup
     //------------
-    ssaoSetup();
+    saoSetup();
 
 
     //---------------------
@@ -358,19 +355,19 @@ int main(int argc, char* argv[])
     //------------------------------
     // Queries setting for profiling
     //------------------------------
-    GLuint64 startGeometryTime, startLightingTime, startSSAOTime, startPostprocessTime, startForwardTime, startGUITime;
-    GLuint64 stopGeometryTime, stopLightingTime, stopSSAOTime, stopPostprocessTime, stopForwardTime, stopGUITime;
+    GLuint64 startGeometryTime, startLightingTime, startSAOTime, startPostprocessTime, startForwardTime, startGUITime;
+    GLuint64 stopGeometryTime, stopLightingTime, stopSAOTime, stopPostprocessTime, stopForwardTime, stopGUITime;
 
     unsigned int queryIDGeometry[2];
     unsigned int queryIDLighting[2];
-    unsigned int queryIDSSAO[2];
+    unsigned int queryIDSAO[2];
     unsigned int queryIDPostprocess[2];
     unsigned int queryIDForward[2];
     unsigned int queryIDGUI[2];
 
     glGenQueries(2, queryIDGeometry);
     glGenQueries(2, queryIDLighting);
-    glGenQueries(2, queryIDSSAO);
+    glGenQueries(2, queryIDSAO);
     glGenQueries(2, queryIDPostprocess);
     glGenQueries(2, queryIDForward);
     glGenQueries(2, queryIDGUI);
@@ -453,54 +450,49 @@ int main(int argc, char* argv[])
         prevProjViewModel = projViewModel;
 
         //---------------
-        // SSAO rendering
+        // sao rendering
         //---------------
-        glQueryCounter(queryIDSSAO[0], GL_TIMESTAMP);
-        glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
+        glQueryCounter(queryIDSAO[0], GL_TIMESTAMP);
+        glBindFramebuffer(GL_FRAMEBUFFER, saoFBO);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        if(ssaoMode)
+        if(saoMode)
         {
-            // SSAO texture
-            ssaoShader.useShader();
+            // SAO noisy texture
+            saoShader.useShader();
 
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, gPosition);
             glActiveTexture(GL_TEXTURE1);
             glBindTexture(GL_TEXTURE_2D, gNormal);
-            glActiveTexture(GL_TEXTURE2);
-            glBindTexture(GL_TEXTURE_2D, noiseTexture);
 
-            for (GLuint i = 0; i < ssaoKernelSize; ++i)
-                glUniform3fv(glGetUniformLocation(ssaoShader.Program, ("samples[" + std::to_string(i) + "]").c_str()), 1, &ssaoKernel[i][0]);
-
-            glUniformMatrix4fv(glGetUniformLocation(ssaoShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-            glUniform1i(glGetUniformLocation(ssaoShader.Program, "ssaoKernelSize"), ssaoKernelSize);
-            glUniform1i(glGetUniformLocation(ssaoShader.Program, "ssaoNoiseSize"), ssaoNoiseSize);
-            glUniform1f(glGetUniformLocation(ssaoShader.Program, "ssaoRadius"), ssaoRadius);
-            glUniform1f(glGetUniformLocation(ssaoShader.Program, "ssaoPower"), ssaoPower);
-            glUniform1f(glGetUniformLocation(ssaoShader.Program, "ssaoBias"), ssaoBias);
-            glUniform1i(glGetUniformLocation(ssaoShader.Program, "viewportWidth"), WIDTH);
-            glUniform1i(glGetUniformLocation(ssaoShader.Program, "viewportHeight"), HEIGHT);
+            glUniform1i(glGetUniformLocation(saoShader.Program, "saoSamples"), saoSamples);
+            glUniform1f(glGetUniformLocation(saoShader.Program, "saoRadius"), saoRadius);
+            glUniform1i(glGetUniformLocation(saoShader.Program, "saoTurns"), saoTurns);
+            glUniform1f(glGetUniformLocation(saoShader.Program, "saoBias"), saoBias);
+            glUniform1f(glGetUniformLocation(saoShader.Program, "saoScale"), saoScale);
+            glUniform1f(glGetUniformLocation(saoShader.Program, "saoContrast"), saoContrast);
+            glUniform1i(glGetUniformLocation(saoShader.Program, "viewportWidth"), WIDTH);
+            glUniform1i(glGetUniformLocation(saoShader.Program, "viewportHeight"), HEIGHT);
 
             screenQuad();
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-            // SSAO Blur texture
-            glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
+            // SAO blur pass
+            glBindFramebuffer(GL_FRAMEBUFFER, saoBlurFBO);
             glClear(GL_COLOR_BUFFER_BIT);
 
-            ssaoBlurShader.useShader();
+            saoBlurShader.useShader();
 
-            glUniform1i(glGetUniformLocation(ssaoBlurShader.Program, "ssaoBlurSize"), ssaoBlurSize);
+            glUniform1i(glGetUniformLocation(saoBlurShader.Program, "saoBlurSize"), saoBlurSize);
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, ssaoBuffer);
+            glBindTexture(GL_TEXTURE_2D, saoBuffer);
 
             screenQuad();
         }
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glQueryCounter(queryIDSSAO[1], GL_TIMESTAMP);
+        glQueryCounter(queryIDSAO[1], GL_TIMESTAMP);
 
 
         //------------------------
@@ -524,7 +516,7 @@ int main(int argc, char* argv[])
             glActiveTexture(GL_TEXTURE3);
             glBindTexture(GL_TEXTURE_2D, gEffects);
             glActiveTexture(GL_TEXTURE4);
-            glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
+            glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);
             glActiveTexture(GL_TEXTURE5);
             envMapHDR.useTexture();
 
@@ -567,7 +559,7 @@ int main(int argc, char* argv[])
             glActiveTexture(GL_TEXTURE3);
             glBindTexture(GL_TEXTURE_2D, gEffects);
             glActiveTexture(GL_TEXTURE4);
-            glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
+            glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);
             glActiveTexture(GL_TEXTURE5);
             envMapHDR.useTexture();
 
@@ -602,7 +594,7 @@ int main(int argc, char* argv[])
             glActiveTexture(GL_TEXTURE3);
             glBindTexture(GL_TEXTURE_2D, gEffects);
             glActiveTexture(GL_TEXTURE4);
-            glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
+            glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);
             glActiveTexture(GL_TEXTURE5);
             envMapHDR.useTexture();
             glActiveTexture(GL_TEXTURE6);
@@ -640,7 +632,7 @@ int main(int argc, char* argv[])
         glUniform1f(glGetUniformLocation(firstpassShader.Program, "cameraAperture"), cameraAperture);
         glUniform1f(glGetUniformLocation(firstpassShader.Program, "cameraShutterSpeed"), cameraShutterSpeed);
         glUniform1f(glGetUniformLocation(firstpassShader.Program, "cameraISO"), cameraISO);
-        glUniform1i(glGetUniformLocation(firstpassShader.Program, "ssaoMode"), ssaoMode);
+        glUniform1i(glGetUniformLocation(firstpassShader.Program, "saoMode"), saoMode);
         glUniform1i(glGetUniformLocation(firstpassShader.Program, "fxaaMode"), fxaaMode);
         glUniform1i(glGetUniformLocation(firstpassShader.Program, "motionBlurMode"), motionBlurMode);
         glUniform1f(glGetUniformLocation(firstpassShader.Program, "motionBlurScale"), int(ImGui::GetIO().Framerate) / 60.0f);
@@ -650,7 +642,7 @@ int main(int argc, char* argv[])
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, postprocessBuffer);
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
+        glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, gEffects);
 
@@ -700,16 +692,16 @@ int main(int argc, char* argv[])
         //--------------
         GLint stopGeometryTimerAvailable = 0;
         GLint stopLightingTimerAvailable = 0;
-        GLint stopSSAOTimerAvailable = 0;
+        GLint stopSAOTimerAvailable = 0;
         GLint stopPostprocessTimerAvailable = 0;
         GLint stopForwardTimerAvailable = 0;
         GLint stopGUITimerAvailable = 0;
 
-        while (!stopGeometryTimerAvailable && !stopLightingTimerAvailable && !stopSSAOTimerAvailable && !stopPostprocessTimerAvailable  && !stopForwardTimerAvailable && !stopGUITimerAvailable)
+        while (!stopGeometryTimerAvailable && !stopLightingTimerAvailable && !stopSAOTimerAvailable && !stopPostprocessTimerAvailable  && !stopForwardTimerAvailable && !stopGUITimerAvailable)
         {
             glGetQueryObjectiv(queryIDGeometry[1], GL_QUERY_RESULT_AVAILABLE, &stopGeometryTimerAvailable);
             glGetQueryObjectiv(queryIDLighting[1], GL_QUERY_RESULT_AVAILABLE, &stopLightingTimerAvailable);
-            glGetQueryObjectiv(queryIDSSAO[1], GL_QUERY_RESULT_AVAILABLE, &stopSSAOTimerAvailable);
+            glGetQueryObjectiv(queryIDSAO[1], GL_QUERY_RESULT_AVAILABLE, &stopSAOTimerAvailable);
             glGetQueryObjectiv(queryIDPostprocess[1], GL_QUERY_RESULT_AVAILABLE, &stopPostprocessTimerAvailable);
             glGetQueryObjectiv(queryIDForward[1], GL_QUERY_RESULT_AVAILABLE, &stopForwardTimerAvailable);
             glGetQueryObjectiv(queryIDGUI[1], GL_QUERY_RESULT_AVAILABLE, &stopGUITimerAvailable);
@@ -719,8 +711,8 @@ int main(int argc, char* argv[])
         glGetQueryObjectui64v(queryIDGeometry[1], GL_QUERY_RESULT, &stopGeometryTime);
         glGetQueryObjectui64v(queryIDLighting[0], GL_QUERY_RESULT, &startLightingTime);
         glGetQueryObjectui64v(queryIDLighting[1], GL_QUERY_RESULT, &stopLightingTime);
-        glGetQueryObjectui64v(queryIDSSAO[0], GL_QUERY_RESULT, &startSSAOTime);
-        glGetQueryObjectui64v(queryIDSSAO[1], GL_QUERY_RESULT, &stopSSAOTime);
+        glGetQueryObjectui64v(queryIDSAO[0], GL_QUERY_RESULT, &startSAOTime);
+        glGetQueryObjectui64v(queryIDSAO[1], GL_QUERY_RESULT, &stopSAOTime);
         glGetQueryObjectui64v(queryIDPostprocess[0], GL_QUERY_RESULT, &startPostprocessTime);
         glGetQueryObjectui64v(queryIDPostprocess[1], GL_QUERY_RESULT, &stopPostprocessTime);
         glGetQueryObjectui64v(queryIDForward[0], GL_QUERY_RESULT, &startForwardTime);
@@ -730,7 +722,7 @@ int main(int argc, char* argv[])
 
         deltaGeometryTime = (stopGeometryTime - startGeometryTime) / 1000000.0;
         deltaLightingTime = (stopLightingTime - startLightingTime) / 1000000.0;
-        deltaSSAOTime = (stopSSAOTime - startSSAOTime) / 1000000.0;
+        deltaSAOTime = (stopSAOTime - startSAOTime) / 1000000.0;
         deltaPostprocessTime = (stopPostprocessTime - startPostprocessTime) / 1000000.0;
         deltaForwardTime = (stopForwardTime - startForwardTime) / 1000000.0;
         deltaGUITime = (stopGUITime - startGUITime) / 1000000.0;
@@ -887,15 +879,17 @@ void imGuiSetup()
 
         if (ImGui::TreeNode("Post processing"))
         {
-            if (ImGui::TreeNode("SSAO"))
+            if (ImGui::TreeNode("SAO"))
             {
-                ImGui::Checkbox("Enable", &ssaoMode);
-                ImGui::SliderFloat("Power", &ssaoPower, 0.0f, 4.0f);
-                ImGui::SliderInt("Kernel Size", &ssaoKernelSize, 0, 128);
-                ImGui::SliderInt("Noise Size", &ssaoNoiseSize, 0, 16);
-                ImGui::SliderFloat("Radius", &ssaoRadius, 0.0f, 3.0f);
-                ImGui::SliderInt("Blur Size", &ssaoBlurSize, 0, 16);
-                ImGui::SliderFloat("Bias", &ssaoBias, 0, 0.5f);
+                ImGui::Checkbox("Enable", &saoMode);
+
+                ImGui::SliderInt("Samples", &saoSamples, 0, 64);
+                ImGui::SliderFloat("Radius", &saoRadius, 0.0f, 3.0f);
+                ImGui::SliderInt("Turns", &saoTurns, 0, 16);
+                ImGui::SliderFloat("Bias", &saoBias, 0.0f, 0.1f);
+                ImGui::SliderFloat("Scale", &saoScale, 0.0f, 3.0f);
+                ImGui::SliderFloat("Contrast", &saoContrast, 0.0f, 3.0f);
+                ImGui::SliderInt("Blur Size", &saoBlurSize, 0, 8);
 
                 ImGui::TreePop();
             }
@@ -1014,7 +1008,7 @@ void imGuiSetup()
     {
         ImGui::Text("Geometry Pass :    %.4f ms", deltaGeometryTime);
         ImGui::Text("Lighting Pass :    %.4f ms", deltaLightingTime);
-        ImGui::Text("SSAO Pass :        %.4f ms", deltaSSAOTime);
+        ImGui::Text("SAO Pass :         %.4f ms", deltaSAOTime);
         ImGui::Text("Postprocess Pass : %.4f ms", deltaPostprocessTime);
         ImGui::Text("Forward Pass :     %.4f ms", deltaForwardTime);
         ImGui::Text("GUI Pass :         %.4f ms", deltaGUITime);
@@ -1096,66 +1090,35 @@ void gBufferSetup()
 }
 
 
-void ssaoSetup()
+void saoSetup()
 {
-    // SSAO Buffer
-    glGenFramebuffers(1, &ssaoFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
-    glGenTextures(1, &ssaoBuffer);
-    glBindTexture(GL_TEXTURE_2D, ssaoBuffer);
+    // SAO Buffer
+    glGenFramebuffers(1, &saoFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, saoFBO);
+    glGenTextures(1, &saoBuffer);
+    glBindTexture(GL_TEXTURE_2D, saoBuffer);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoBuffer, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, saoBuffer, 0);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "SSAO Framebuffer not complete !" << std::endl;
+        std::cout << "SAO Framebuffer not complete !" << std::endl;
 
-    // SSAO Blur Buffer
-    glGenFramebuffers(1, &ssaoBlurFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
-    glGenTextures(1, &ssaoBlurBuffer);
-    glBindTexture(GL_TEXTURE_2D, ssaoBlurBuffer);
+    // SAO Blur Buffer
+    glGenFramebuffers(1, &saoBlurFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, saoBlurFBO);
+    glGenTextures(1, &saoBlurBuffer);
+    glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoBlurBuffer, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, saoBlurBuffer, 0);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "SSAO Blur Framebuffer not complete !" << std::endl;
+        std::cout << "SAO Blur Framebuffer not complete !" << std::endl;
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // Sample kernel
-    std::uniform_real_distribution<GLfloat> randomFloats(0.0, 1.0);
-    std::default_random_engine generator;
-
-    for (GLuint i = 0; i < 128; ++i)
-    {
-        glm::vec3 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator));
-        GLfloat scale = GLfloat(i) / 128.0;
-
-        sample = glm::normalize(sample);
-        sample *= randomFloats(generator);
-        scale = lerp(0.1f, 1.0f, scale * scale);
-        sample *= scale;
-
-        ssaoKernel.push_back(sample);
-    }
-
-    // Noise texture
-    for (GLuint i = 0; i < 16; i++)
-    {
-        glm::vec3 noise(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f);
-        ssaoNoise.push_back(noise);
-    }
-    glGenTextures(1, &noiseTexture);
-    glBindTexture(GL_TEXTURE_2D, noiseTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, 4, 4, 0, GL_RGB, GL_FLOAT, &ssaoNoise[0]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 }
 
 

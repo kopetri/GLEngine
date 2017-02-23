@@ -47,7 +47,7 @@ void main()
         offset.xyz = offset.xyz * 0.5 + 0.5;
 
         // Get the kernel sample's depth information
-        float sampleDepth = -texture(gPosition, offset.xy).w;
+        float sampleDepth = texture(gPosition, offset.xy).z;
 
         // Check if the sample should be added or not
         float rangeCheck = smoothstep(0.0, 1.0, ssaoRadius / abs(fragPos.z - sampleDepth ));

@@ -9,7 +9,7 @@ Screenshots
 
 * Example using Image-Based Lighting :
 
-![](http://image.noelshack.com/fichiers/2017/01/1483649757-glengine1.png)
+![](https://image.ibb.co/nt76La/Screenshot_from_2017_02_23_13_26_44.png)
 * G-Buffer structure :
 
 ![](http://image.noelshack.com/fichiers/2016/52/1483180466-glengine2.png)
@@ -95,6 +95,7 @@ Features
 
 * Post-processing :
 	* SSAO
+    * Scalable Ambient Obscurance (SAO)
     * FXAA
     * Motion Blur (camera/per-fragment)
     * Tonemapping (Reinhard, Filmic, Uncharted)

@@ -13,7 +13,7 @@ uniform sampler2D gAlbedo;
 uniform sampler2D gNormal;
 uniform sampler2D gEffects;
 
-uniform sampler2D ssao;
+uniform sampler2D sao;
 uniform sampler2D envMap;
 uniform sampler2D envMapIrradiance;
 //uniform sampler2D envMapPrefilter;
@@ -41,7 +41,7 @@ vec2 Hammersley(uint i, uint N);
 vec3 ImportanceSampleGGX(vec2 Xi, float roughness, vec3 N);
 vec3 prefilterEnvMap(float roughness, vec3 R);
 vec2 integrateBRDF(float roughness, float NoV);
-vec3 computeApproximateRadiance(vec3 specularColor, float roughness, vec3 N, vec3 V);
+vec3 computeApproximateRadiance(vec3 specularColor, float roughness, vec3 N, vec3 V, float NdotV);
 
 
 void main()
@@ -56,7 +56,7 @@ void main()
     vec2 velocity = texture(gEffects, TexCoords).gb;
     float depth = texture(gPosition, TexCoords).a;
 
-    float ssao = texture(ssao, TexCoords).r;
+    float sao = texture(sao, TexCoords).r;
     vec3 envColor = texture(envMap, getSphericalCoord(normalize(envMapCoords))).rgb;
 
     vec3 color = vec3(0.0f);
@@ -73,7 +73,7 @@ void main()
         vec3 V = normalize(- viewPos);
         vec3 N = normalize(normal);
 
-        float NdotV = saturate(dot(N, V));
+        float NdotV = max(dot(N, V), 0.0001f);
 
         // Fresnel (Schlick) computation (F term)
         vec3 F0 = mix(materialF0, albedo, metalness);
@@ -89,7 +89,7 @@ void main()
         diffuse = irradiance * (albedo / PI);
 
         // Specular radiance computation
-        specular = computeApproximateRadiance(F, roughness, N, V);
+        specular = computeApproximateRadiance(F, roughness, N, V, NdotV);
 
         color = (diffuse * kD) + specular;
     }
@@ -124,9 +124,9 @@ void main()
     else if (gBufferView == 7)
         colorOutput = vec4(vec3(depth/50.0f), 1.0f);
 
-    // SSAO buffer
+    // SAO buffer
     else if (gBufferView == 8)
-        colorOutput = vec4(vec3(ssao), 1.0f);
+        colorOutput = vec4(vec3(sao), 1.0f);
 
     // Velocity buffer
     else if (gBufferView == 9)
@@ -310,10 +310,9 @@ vec2 integrateBRDF(float roughness, float NdotV)
 }
 
 
-vec3 computeApproximateRadiance(vec3 specularColor, float roughness, vec3 N, vec3 V)
+vec3 computeApproximateRadiance(vec3 specularColor, float roughness, vec3 N, vec3 V, float NdotV)
 {
-    float NdotV = saturate(dot(N, V));
-    vec3 R = 2.0f * dot(V, N) * N - V;
+    vec3 R = 2.0f * NdotV * N - V;
 
     vec3 prefilteredColor = prefilterEnvMap(roughness, R);
     vec2 envBRDF = integrateBRDF(roughness, NdotV);
