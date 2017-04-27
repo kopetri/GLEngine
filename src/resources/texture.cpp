@@ -139,8 +139,42 @@ void Texture::setTextureHDR(const char* texPath, std::string texName, bool texFl
         std::cerr << "HDR TEXTURE - FILE IS NOT HDR : " << texPath << std::endl;
     }
 
-
     glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+
+void Texture::setTextureHDR(GLuint width, GLuint height, GLenum format, GLenum internalFormat, GLenum type, GLenum minFilter)
+{
+	this->texType = GL_TEXTURE_2D;
+
+	glGenTextures(1, &this->texID);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, this->texID);
+
+	this->texWidth = width;
+	this->texHeight = height;
+	this->texFormat = format;
+	this->texInternalFormat = internalFormat;
+
+	if (format == GL_RED)
+		this->texComponents = 1;
+	else if (format == GL_RG)
+		this->texComponents = 2;
+	else if (format == GL_RGB)
+		this->texComponents = 3;
+	else if (format == GL_RGBA)
+		this->texComponents = 4;
+
+	glTexImage2D(GL_TEXTURE_2D, 0, this->texInternalFormat, this->texWidth, this->texHeight, 0, this->texFormat, GL_FLOAT, nullptr);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 
@@ -168,7 +202,7 @@ void Texture::setTextureCube(std::vector<const char*>& faces, bool texFlip)
     int width, height, numComponents;
     unsigned char* texData;
 
-    for(GLuint i = 0; i < cubemapFaces.size(); i++)
+    for(GLuint i = 0; i < 6; i++)
     {
         texData = stbi_load(cubemapFaces[i].c_str(), &width, &height, &numComponents, 0);
 
@@ -214,6 +248,57 @@ void Texture::setTextureCube(std::vector<const char*>& faces, bool texFlip)
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
     glBindTexture(this->texType, 0);
+}
+
+
+void Texture::setTextureCube(GLuint width, GLenum format, GLenum internalFormat, GLenum type, GLenum minFilter)
+{
+    this->texType = GL_TEXTURE_CUBE_MAP;
+
+    glGenTextures(1, &this->texID);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(this->texType, this->texID);
+
+    for(GLuint i = 0; i < 6; ++i)
+    {
+        if(this->texWidth == NULL && this->texHeight == NULL && this->texComponents == NULL)
+        {
+            this->texWidth = width;
+            this->texHeight = width;
+            this->texFormat = format;
+            this->texInternalFormat = internalFormat;
+        }
+
+        if (format == GL_RED)
+            this->texComponents = 1;
+        else if (format == GL_RGB)
+            this->texComponents = 3;
+        else if (format == GL_RGBA)
+            this->texComponents = 4;
+
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, this->texInternalFormat, this->texWidth, this->texHeight, 0, this->texFormat, type, nullptr);
+    }
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, minFilter);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    glBindTexture(this->texType, 0);
+}
+
+
+void Texture::computeTexMipmap()
+{
+    glBindTexture(this->texType, this->texID);
+    glGenerateMipmap(this->texType);
+}
+
+
+GLuint Texture::getTexID()
+{
+    return this->texID;
 }
 
 

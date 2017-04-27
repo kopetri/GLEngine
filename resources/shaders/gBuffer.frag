@@ -11,8 +11,8 @@ in vec3 normal;
 in vec4 fragPosition;
 in vec4 fragPrevPosition;
 
-const float nearPlane = 0.1f;
-const float farPlane = 100.0f;
+const float nearPlane = 1.0f;
+const float farPlane = 1000.0f;
 
 uniform vec3 albedoColor;
 uniform sampler2D texAlbedo;

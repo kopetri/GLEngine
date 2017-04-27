@@ -22,7 +22,11 @@ class Texture
         ~Texture();
         void setTexture(const char* texPath, std::string texName, bool texFlip);
         void setTextureHDR(const char* texPath, std::string texName, bool texFlip);
+		void setTextureHDR(GLuint width, GLuint height, GLenum format, GLenum internalFormat, GLenum type, GLenum minFilter);
         void setTextureCube(std::vector<const char*>& faces, bool texFlip);
+        void setTextureCube(GLuint width, GLenum format, GLenum internalFormat, GLenum type, GLenum minFilter);
+        void computeTexMipmap();
+        GLuint getTexID();
         GLuint getTexWidth();
         GLuint getTexHeight();
         std::string getTexName();

@@ -48,7 +48,7 @@ Features
     * **TODO :** Revamp & debug to support kinda buggy models
 
 * Basic Shapes :
-    * Simple shape generation (triangle, plane, cube)
+    * Simple shape generation (quad, plane, cube)
     * Predefined array based
     * **TODO :** Shape topology computation (sphere...)
 
@@ -74,8 +74,6 @@ Features
     * **TODO :** Spot light
 
 * Lighting :
-    * Lambert
-    * Phong
     * Cook-Torrance BRDF
     * Deferred Rendering
     * **TODO :** Shadow-mapping (PCF/Variance)
@@ -89,12 +87,11 @@ Features
         * Microfacet distribution : GGX
         * Geometry attenuation : GGX-Smith
     * Material pipeline using a roughness/metalness workflow
-    * Image-Based Lighting :
-        * Diffuse irradiance (precomputed map)
-        * Specular radiance (Epic split-sum method)
+    * Image-Based Lighting (Epic split-sum method) :
+        * Diffuse irradiance
+        * Specular radiance
 
 * Post-processing :
-	* SSAO
     * Scalable Ambient Obscurance (SAO)
     * FXAA
     * Motion Blur (camera/per-fragment)

@@ -30,6 +30,7 @@ class Shape
         ~Shape();
         void setShape(std::string type, glm::vec3 position);
         void drawShape(Shader& lightingShader, glm::mat4& view, glm::mat4& projection, Camera& camera);
+        void drawShape();
         std::string getShapeType();
         glm::vec3 getShapePosition();
         GLfloat getShapeAngle();
