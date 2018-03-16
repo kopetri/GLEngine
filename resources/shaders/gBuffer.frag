@@ -21,6 +21,12 @@ uniform sampler2D texRoughness;
 uniform sampler2D texMetalness;
 uniform sampler2D texAO;
 
+uniform float materialRoughness;
+uniform float materialMetallicity;
+uniform bool useRoughnessTexture;
+uniform bool useAlbedoTexture;
+uniform bool useMetalnessTexture;
+
 float LinearizeDepth(float depth);
 vec3 computeTexNormal(vec3 viewNormal, vec3 texNormal);
 
@@ -34,12 +40,20 @@ void main()
     vec2 fragPosB = (fragPrevPosition.xy / fragPrevPosition.w) * 0.5f + 0.5f;
 
     gPosition = vec4(viewPos, LinearizeDepth(gl_FragCoord.z));
-    gAlbedo.rgb = vec3(texture(texAlbedo, TexCoords));
-//    gAlbedo.rgb = vec3(albedoColor);
-    gAlbedo.a =  vec3(texture(texRoughness, TexCoords)).r;
-    gNormal.rgb = computeTexNormal(normal, texNormal);
+	if(useAlbedoTexture)
+		gAlbedo.rgb = vec3(texture(texAlbedo, TexCoords));
+	else
+		gAlbedo.rgb = vec3(albedoColor);
+	if(useRoughnessTexture)
+		gAlbedo.a =  vec3(texture(texRoughness, TexCoords)).r;
+	else
+		gAlbedo.a =  materialRoughness;
+    gNormal.rgb = computeTexNormal(-normal, texNormal);
 //    gNormal.rgb = normalize(normal);
-    gNormal.a = vec3(texture(texMetalness, TexCoords)).r;
+    if(useMetalnessTexture)
+		gNormal.a = vec3(texture(texMetalness, TexCoords)).r;
+	else
+		gNormal.a = materialMetallicity;
     gEffects.r = vec3(texture(texAO, TexCoords)).r;
     gEffects.gb = fragPosA - fragPosB;
 }

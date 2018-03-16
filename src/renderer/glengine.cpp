@@ -111,6 +111,9 @@ bool motionBlurMode = false;
 bool screenMode = false;
 bool firstMouse = true;
 bool guiIsOpen = true;
+bool useRoughnessTexture = true;
+bool useAlbedoTexture = true;
+bool useMetalnessTexture = true;
 bool keys[1024];
 
 glm::vec3 albedoColor = glm::vec3(1.0f);
@@ -194,10 +197,10 @@ int main(int argc, char* argv[])
     glfwWindowHint(GLFW_BLUE_BITS, glfwMode->blueBits);
     glfwWindowHint(GLFW_REFRESH_RATE, glfwMode->refreshRate);
 
-    WIDTH = glfwMode->width;
-    HEIGHT = glfwMode->height;
+    //WIDTH = glfwMode->width;
+    //HEIGHT = glfwMode->height;
 
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", glfwMonitor, NULL);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", NULL, NULL);
     //    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "GLEngine", nullptr, nullptr);
     glfwMakeContextCurrent(window);
 
@@ -271,11 +274,12 @@ int main(int argc, char* argv[])
 
 
     //---------
-    // Model(s)
+    // Model(s) 
     //---------
-    objectModel.loadModel("resources/models/shaderball/shaderball.obj");
-
-
+    //objectModel.loadModel("resources/models/shaderball/shaderball.obj");
+    //objectModel.loadModel("resources/models/shaderball/711365_7113FA.3ds");
+    objectModel.loadModel("resources/models/sink/sink.obj");
+    modelScale = glm::vec3(0.03f);
     //---------------
     // Shape(s)
     //---------------
@@ -424,6 +428,13 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "prevProjViewModel"), 1, GL_FALSE, glm::value_ptr(prevProjViewModel));
         glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
         glUniform3f(glGetUniformLocation(gBufferShader.Program, "albedoColor"), albedoColor.r, albedoColor.g, albedoColor.b);
+        glUniform1f(glGetUniformLocation(gBufferShader.Program, "materialRoughness"), materialRoughness);
+        glUniform1f(glGetUniformLocation(gBufferShader.Program, "materialMetallicity"), materialMetallicity);
+        glUniform1i(glGetUniformLocation(gBufferShader.Program, "useRoughnessTexture"), useRoughnessTexture);
+        glUniform1i(glGetUniformLocation(gBufferShader.Program, "useAlbedoTexture"), useAlbedoTexture);
+        glUniform1i(glGetUniformLocation(gBufferShader.Program, "useMetalnessTexture"), useMetalnessTexture);
+        
+
 
         // Material
         // pbrMat.renderToShader();
@@ -714,9 +725,15 @@ void imGuiSetup()
     {
         if (ImGui::TreeNode("Material"))
         {
-            ImGui::ColorEdit3("Albedo", (float*)&albedoColor);
-            ImGui::SliderFloat("Roughness", &materialRoughness, 0.0f, 1.0f);
-            ImGui::SliderFloat("Metalness", &materialMetallicity, 0.0f, 1.0f);
+            ImGui::Checkbox("Roughness Texture", &useRoughnessTexture);
+            ImGui::Checkbox("Albedo Texture", &useAlbedoTexture);
+            ImGui::Checkbox("Metalness Texture", &useMetalnessTexture);
+            if(!useAlbedoTexture)
+                ImGui::ColorEdit3("Albedo", (float*)&albedoColor);
+            if(!useRoughnessTexture)
+                ImGui::SliderFloat("Roughness", &materialRoughness, 0.0f, 1.0f);
+            if (!useMetalnessTexture)
+                ImGui::SliderFloat("Metalness", &materialMetallicity, 0.0f, 1.0f);
             ImGui::SliderFloat3("F0", (float*)&materialF0, 0.0f, 1.0f);
             ImGui::SliderFloat("Ambient Intensity", &ambientIntensity, 0.0f, 1.0f);
 
@@ -919,6 +936,13 @@ void imGuiSetup()
                     modelScale = glm::vec3(0.1f);
                 }
 
+                if (ImGui::Button("Sink"))
+                {
+                    objectModel.~Model();
+                    objectModel.loadModel("resources/models/sink/sink.obj");
+                    modelScale = glm::vec3(0.03f);
+                }
+
                 ImGui::TreePop();
             }
 
@@ -944,6 +968,17 @@ void imGuiSetup()
                     objectAO.setTexture("resources/textures/pbr/gold/gold_ao.png", "goldAO", true);
 
                     materialF0 = glm::vec3(1.0f, 0.72f, 0.29f);
+                }
+
+                if (ImGui::Button("Ceramic"))
+                {
+                    objectAlbedo.setTexture("resources/textures/pbr/ceramic/ceramic_albedo.png", "goldAlbedo", true);
+                    objectNormal.setTexture("resources/textures/pbr/ceramic/ceramic_normal.png", "goldNormal", true);
+                    objectRoughness.setTexture("resources/textures/pbr/ceramic/ceramic_roughness.png", "goldRoughness", true);
+                    objectMetalness.setTexture("resources/textures/pbr/ceramic/ceramic_metalness.png", "goldMetalness", true);
+                    objectAO.setTexture("resources/textures/pbr/ceramic/ceramic_ao.png", "goldAO", true);
+
+                    materialF0 = glm::vec3(1.0f, 1.0f, 1.0f);
                 }
 
                 if (ImGui::Button("Woodfloor"))
