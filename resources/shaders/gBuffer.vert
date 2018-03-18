@@ -16,6 +16,8 @@ uniform mat4 projection;
 uniform mat4 projViewModel;
 uniform mat4 prevProjViewModel;
 
+uniform bool negativeNormals;
+
 
 void main()
 {
@@ -26,7 +28,10 @@ void main()
     TexCoords = texCoords;
 
     mat3 normalMatrix = transpose(inverse(mat3(view * model)));
-    normal = normalMatrix * Normal;
+	if(negativeNormals)
+		normal = -(normalMatrix * Normal);
+	else
+		normal = normalMatrix * Normal;
 
     fragPosition = projViewModel * vec4(position, 1.0f);
     fragPrevPosition = prevProjViewModel * vec4(position, 1.0f);

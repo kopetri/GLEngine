@@ -48,7 +48,7 @@ void main()
 		gAlbedo.a =  vec3(texture(texRoughness, TexCoords)).r;
 	else
 		gAlbedo.a =  materialRoughness;
-    gNormal.rgb = computeTexNormal(-normal, texNormal);
+    gNormal.rgb = computeTexNormal(normal, texNormal);
 //    gNormal.rgb = normalize(normal);
     if(useMetalnessTexture)
 		gNormal.a = vec3(texture(texMetalness, TexCoords)).r;
