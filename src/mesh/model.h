@@ -25,6 +25,7 @@ class Model
         ~Model();
         void loadModel(std::string path);
         void Draw();
+        glm::vec3 centroid();
 
     private:
         std::vector<Mesh> meshes;

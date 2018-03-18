@@ -12,7 +12,9 @@
 #include "material.h"
 
 #define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image.h"
+#include "stb_image_write.h"
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -31,6 +33,10 @@
 #include <cstdlib>
 #include <iostream>
 #include <random>
+#include <filesystem>
+#include <random>
+
+namespace fs = std::experimental::filesystem;
 
 
 //---------------
@@ -53,13 +59,14 @@ void gBufferSetup();
 void saoSetup();
 void postprocessSetup();
 void iblSetup();
+float random(float min, float max);
 
 //---------------------------------
 // Variables & objects declarations
 //---------------------------------
 
-GLuint WIDTH = 1280;
-GLuint HEIGHT = 720;
+GLuint WIDTH = 512;
+GLuint HEIGHT = 512;
 
 GLuint screenQuadVAO, screenQuadVBO;
 GLuint gBuffer, zBuffer, gPosition, gNormal, gAlbedo, gEffects;
@@ -100,6 +107,9 @@ GLfloat cameraAperture = 16.0f;
 GLfloat cameraShutterSpeed = 0.5f;
 GLfloat cameraISO = 1000.0f;
 GLfloat modelRotationSpeed = 0.0f;
+GLfloat theta = 0.0f;
+GLfloat rho = 0.0f;
+GLfloat radius = 1.0f;
 
 bool cameraMode;
 bool pointMode = false;
@@ -111,10 +121,22 @@ bool motionBlurMode = false;
 bool screenMode = false;
 bool firstMouse = true;
 bool guiIsOpen = true;
-bool useRoughnessTexture = true;
-bool useAlbedoTexture = true;
-bool useMetalnessTexture = true;
+bool useRoughnessTexture = false;
+bool useAlbedoTexture = false;
+bool useMetalnessTexture = false;
+bool isOrbitCamera = false;
+bool negativeNormals = false;
 bool keys[1024];
+
+int fullRotationTicks = 72;
+int halfRotationTicks = 12;
+int index_fullRotationTicks = fullRotationTicks + 1;
+int index_halfRotationTicks = halfRotationTicks + 1;
+int frame = 0;
+
+bool record = false;
+bool recording = false;
+std::string recording_path = "./";
 
 glm::vec3 albedoColor = glm::vec3(1.0f);
 glm::vec3 materialF0 = glm::vec3(0.04f);  // UE4 dielectric
@@ -179,9 +201,11 @@ Light lightDirectional1;
 Shape quadRender;
 Shape envCubeRender;
 
+std::vector<fs::path> subway_paths;
 
 int main(int argc, char* argv[])
 {
+    std::srand(std::time(nullptr));
     glfwInit();
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -220,7 +244,6 @@ int main(int argc, char* argv[])
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetScrollCallback(window, scroll_callback);
-
 
     //----------
     // Shader(s)
@@ -276,10 +299,12 @@ int main(int argc, char* argv[])
     //---------
     // Model(s) 
     //---------
+    for (auto & p : fs::directory_iterator("resources/models/SUBWAY_2.0/"))
+        subway_paths.push_back(p);
     //objectModel.loadModel("resources/models/shaderball/shaderball.obj");
     //objectModel.loadModel("resources/models/shaderball/711365_7113FA.3ds");
-    objectModel.loadModel("resources/models/sink/sink.obj");
-    modelScale = glm::vec3(0.03f);
+    objectModel.loadModel("resources/models/SUBWAY_2.0/7114F0.3ds");
+    modelScale = glm::vec3(2.0f);
     //---------------
     // Shape(s)
     //---------------
@@ -391,7 +416,6 @@ int main(int argc, char* argv[])
         glfwPollEvents();
         cameraMove();
 
-
         //--------------
         // ImGui setting
         //--------------
@@ -433,7 +457,7 @@ int main(int argc, char* argv[])
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "useRoughnessTexture"), useRoughnessTexture);
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "useAlbedoTexture"), useAlbedoTexture);
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "useMetalnessTexture"), useMetalnessTexture);
-        
+        glUniform1i(glGetUniformLocation(gBufferShader.Program, "negativeNormals"), negativeNormals);
 
 
         // Material
@@ -617,9 +641,12 @@ int main(int argc, char* argv[])
         glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
+
         // Copy the depth informations from the Geometry Pass into the default framebuffer
         glBlitFramebuffer(0, 0, WIDTH, HEIGHT, 0, 0, WIDTH, HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        
 
         // Shape(s) rendering
         if (pointMode)
@@ -637,6 +664,35 @@ int main(int argc, char* argv[])
             }
         }
         glQueryCounter(queryIDForward[1], GL_TIMESTAMP);
+
+        //----------------
+        // Capture
+        //----------------
+        if(recording)
+        {
+            const auto channels = 4;
+            unsigned char* ptr = new unsigned char[WIDTH * HEIGHT * channels];
+            glPixelStorei(GL_PACK_ALIGNMENT, 1);
+            glReadPixels(0, 0, WIDTH, HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, ptr);
+            // glReadPixels reads the given rectangle from bottom-left to top-right, so we must
+            // reverse it
+            for (int y = 0; y < HEIGHT / 2; y++)
+            {
+                const int swapY = HEIGHT - y - 1;
+                for (int x = 0; x < WIDTH; x++)
+                {
+                    const int offset = channels * (x + y * WIDTH);
+                    const int swapOffset = channels * (x + swapY * WIDTH);
+
+                    // Swap R, G and B of the 2 pixels
+                    std::swap(ptr[offset + 0], ptr[swapOffset + 0]);
+                    std::swap(ptr[offset + 1], ptr[swapOffset + 1]);
+                    std::swap(ptr[offset + 2], ptr[swapOffset + 2]);
+                }
+            }
+            stbi_write_png(std::string(recording_path+"frame" + std::to_string(frame++) + ".png").c_str(), WIDTH, HEIGHT, 4, ptr, WIDTH * channels);
+            delete[] ptr;
+        }
 
 
         //----------------
@@ -725,6 +781,7 @@ void imGuiSetup()
     {
         if (ImGui::TreeNode("Material"))
         {
+            ImGui::Checkbox("Negative Normals", &negativeNormals);
             ImGui::Checkbox("Roughness Texture", &useRoughnessTexture);
             ImGui::Checkbox("Albedo Texture", &useAlbedoTexture);
             ImGui::Checkbox("Metalness Texture", &useMetalnessTexture);
@@ -903,7 +960,53 @@ void imGuiSetup()
             ImGui::SliderFloat("Aperture", &cameraAperture, 1.0f, 32.0f);
             ImGui::SliderFloat("Shutter Speed", &cameraShutterSpeed, 0.001f, 1.0f);
             ImGui::SliderFloat("ISO", &cameraISO, 100.0f, 3200.0f);
+            ImGui::Checkbox("Orbitting Camera", &isOrbitCamera);
+            if(isOrbitCamera)
+            {
+                ImGui::Checkbox("Record Mode", &record);
+                if (record)
+                {
+                    if (ImGui::Button("Start Record"))
+                    {
+                        index_fullRotationTicks = 0;
+                        index_halfRotationTicks = 0;
+                        frame = 0;
+                        recording = true;
+                    }
 
+                    if (index_fullRotationTicks <= fullRotationTicks && index_halfRotationTicks <= halfRotationTicks)
+                    {
+                        theta = -glm::pi<float>() + 2.0f * glm::pi<float>() / static_cast<float>(fullRotationTicks) * index_fullRotationTicks;
+                        rho = -glm::pi<float>()*.5f + glm::pi<float>() / static_cast<float>(halfRotationTicks) * index_halfRotationTicks;
+                        index_fullRotationTicks++;
+                        if (index_fullRotationTicks >= fullRotationTicks)
+                        {
+                            index_fullRotationTicks = 0;
+                            index_halfRotationTicks++;
+                        }
+                    } else
+                    {
+                        recording = false;
+                    }
+                }
+                else
+                {
+                    ImGui::SliderFloat("Theta", &theta, -glm::pi<float>(), glm::pi<float>());
+                    ImGui::SliderFloat("Rho", &rho, -glm::pi<float>()*.5f, glm::pi<float>()*.5f);
+                    ImGui::SliderFloat("Radius", &radius, 1.0, 10.f);
+                }
+                const auto d = glm::cos(rho) * radius;
+                const auto x = d * glm::cos(theta);
+                const auto y = glm::sqrt(radius * radius - d * d) * (rho<0 ? 1.0f : -1.0f);
+                const auto z = d * glm::sin(theta);
+                if (glm::abs(rho) >= glm::pi<float>()*.5f)
+                {
+                    camera.lookAt(glm::vec3(x, y, z), glm::vec3(0.f), glm::vec3(0.f, -1.f, 0.f));
+                }else
+                {
+                    camera.lookAt(glm::vec3(x, y, z), glm::vec3(0.f), glm::vec3(0.f, 1.f, 0.f));
+                }
+            }
             ImGui::TreePop();
         }
 
@@ -936,11 +1039,18 @@ void imGuiSetup()
                     modelScale = glm::vec3(0.1f);
                 }
 
-                if (ImGui::Button("Sink"))
+                if (ImGui::TreeNode("Subway 2.0"))
                 {
-                    objectModel.~Model();
-                    objectModel.loadModel("resources/models/sink/sink.obj");
-                    modelScale = glm::vec3(0.03f);
+                    for(auto p : subway_paths)
+                    {
+                        if (ImGui::Button(std::string(p.filename().generic_string()).c_str()))
+                        {
+                            objectModel.~Model();
+                            objectModel.loadModel(p.generic_string());
+                            modelScale = glm::vec3(2.0f);
+                            modelPosition = -objectModel.centroid();
+                        }
+                    }
                 }
 
                 ImGui::TreePop();
@@ -1342,4 +1452,9 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     if (cameraMode)
         camera.scrollCall(yoffset);
+}
+
+float random(float min, float max)
+{
+    return ((static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX)) * (max - min)) + min;
 }

@@ -34,14 +34,17 @@ Model::~Model()
 void Model::loadModel(std::string path)
 {
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(path, 
-        aiProcess_Triangulate | 
-        aiProcess_FlipUVs | 
-        aiProcess_GenSmoothNormals |
-        aiProcess_CalcTangentSpace |
+    const aiScene* scene = importer.ReadFile(path,
         aiProcess_Triangulate |
+        aiProcess_FlipUVs |
+        aiProcess_FixInfacingNormals |
+        aiProcess_CalcTangentSpace |
         aiProcess_JoinIdenticalVertices |
-        aiProcess_SortByPType);
+        aiProcess_SortByPType | 
+        aiProcess_TransformUVCoords |
+        aiProcess_GenUVCoords |
+        aiProcess_GenSmoothNormals |
+        aiProcess_GenNormals);
 
     if(!scene || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) // if is Not Zero
     {
@@ -57,6 +60,17 @@ void Model::Draw()
 {
     for(GLuint i = 0; i < this->meshes.size(); i++)
         this->meshes[i].Draw();
+}
+
+glm::vec3 Model::centroid()
+{
+    auto centroid = glm::vec3(0.f);
+    for(auto m : this->meshes)
+    {
+        centroid += m.centroid;
+    }
+    centroid /= this->meshes.size();
+    return centroid;
 }
 
 
@@ -79,6 +93,10 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene)
 {
     std::vector<Vertex> vertices;
     std::vector<GLuint> indices;
+    glm::vec3 centroid;
+
+    auto min_x = FLT_MAX, min_y = FLT_MAX, min_z = FLT_MAX;
+    auto max_x = -FLT_MIN, max_y = -FLT_MIN, max_z = -FLT_MIN;
 
     for(GLuint i = 0; i < mesh->mNumVertices; i++)
     {
@@ -89,6 +107,13 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene)
         vector.y = mesh->mVertices[i].y;
         vector.z = mesh->mVertices[i].z;
         vertex.Position = vector;
+        min_x = glm::min(min_x, vector.x);
+        min_y = glm::min(min_y, vector.y);
+        min_z = glm::min(min_z, vector.z);
+
+        max_x = glm::max(max_x, vector.x);
+        max_y = glm::max(max_y, vector.y);
+        max_z = glm::max(max_z, vector.z);
 
         vector.x = mesh->mNormals[i].x;
         vector.y = mesh->mNormals[i].y;
@@ -108,6 +133,10 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene)
         vertices.push_back(vertex);
     }
 
+    centroid.x = min_x + (max_x - min_x) * 0.5f;
+    centroid.y = min_y + (max_y - min_y) * 0.5f;
+    centroid.z = min_z + (max_z - min_z) * 0.5f;
+
     for(GLuint i = 0; i < mesh->mNumFaces; i++)
     {
         aiFace face = mesh->mFaces[i];
@@ -116,5 +145,5 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene)
             indices.push_back(face.mIndices[j]);
     }
 
-    return Mesh(vertices, indices);
+    return Mesh(vertices, indices, centroid);
 }

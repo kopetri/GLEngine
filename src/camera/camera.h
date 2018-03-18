@@ -44,7 +44,7 @@ class Camera
         void keyboardCall(Camera_Movement direction, GLfloat deltaTime);
         void mouseCall(GLfloat xoffset, GLfloat yoffset, GLboolean constrainPitch = true);
         void scrollCall(GLfloat yoffset);
-
+        void lookAt(glm::vec3 pos, glm::vec3 center, glm::vec3 up);
     private:
         void updateCameraVectors();
 };

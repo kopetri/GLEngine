@@ -33,6 +33,13 @@ glm::mat4 Camera::GetViewMatrix()
     return glm::lookAt(this->cameraPosition, this->cameraPosition + this->cameraFront, this->cameraUp);
 }
 
+void Camera::lookAt(glm::vec3 pos, glm::vec3 center, glm::vec3 up)
+{
+    this->cameraPosition = pos;
+    this->cameraFront = center - pos;
+    this->cameraUp = glm::normalize(up);
+}
+
 
 void Camera::keyboardCall(Camera_Movement direction, GLfloat deltaTime)
 {

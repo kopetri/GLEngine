@@ -11,10 +11,11 @@
 #include "mesh.h"
 
 
-Mesh::Mesh(std::vector<Vertex>& vertices, std::vector<GLuint>& indices)
+Mesh::Mesh(std::vector<Vertex>& vertices, std::vector<GLuint>& indices, glm::vec3& centroid)
 {
     this->vertices = vertices;
     this->indices = indices;
+    this->centroid = centroid;
 
     this->setupMesh();
 }
