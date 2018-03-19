@@ -36,15 +36,15 @@ void Model::loadModel(std::string path)
     Assimp::Importer importer;
     const aiScene* scene = importer.ReadFile(path,
         aiProcess_Triangulate |
-        aiProcess_FlipUVs |
+        aiProcess_FlipUVs|
         aiProcess_FixInfacingNormals |
         aiProcess_CalcTangentSpace |
         aiProcess_JoinIdenticalVertices |
-        aiProcess_SortByPType | 
+        aiProcess_SortByPType |
         aiProcess_TransformUVCoords |
-        aiProcess_GenUVCoords |
         aiProcess_GenSmoothNormals |
-        aiProcess_GenNormals);
+        aiProcess_GenNormals |
+        aiProcess_GenUVCoords);
 
     if(!scene || scene->mFlags == AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) // if is Not Zero
     {
@@ -126,6 +126,7 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene)
             vec.x = mesh->mTextureCoords[0][i].x;
             vec.y = mesh->mTextureCoords[0][i].y;
             vertex.TexCoords = vec;
+            //std::cout << vec.x << std::endl;
         }
         else
             vertex.TexCoords = glm::vec2(0.0f, 0.0f);

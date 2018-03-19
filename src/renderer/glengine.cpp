@@ -124,12 +124,68 @@ bool guiIsOpen = true;
 bool useRoughnessTexture = false;
 bool useAlbedoTexture = false;
 bool useMetalnessTexture = false;
+bool useNormalTexture = false;
 bool isOrbitCamera = false;
 bool negativeNormals = false;
 bool keys[1024];
 
-int fullRotationTicks = 5;
-int halfRotationTicks = 2;
+std::vector<bool> invertNormal = {
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    true,
+    true,
+    false,
+    true,
+    true,
+    false,
+    true,
+    true,
+    false,
+    true,
+    true,
+    false,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    false,
+    false,
+    false,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    false,
+    true,
+    true,
+    true,
+    false,
+    true,
+    false,
+    false,
+    false
+};
+
+int fullRotationTicks = 72;
+int halfRotationTicks = 12;
 int index_fullRotationTicks = fullRotationTicks + 1;
 int index_halfRotationTicks = halfRotationTicks + 1;
 int frame = 0;
@@ -308,7 +364,9 @@ int main(int argc, char* argv[])
             model_pool_paths.push_back(p);
         }
     }
-    objectModel.loadModel("resources/models/shaderball/shaderball.obj");
+    //objectModel.loadModel("resources/models/shaderball/shaderball.obj");
+    objectModel.loadModel(model_pool_paths[0].generic_string());
+    modelScale = glm::vec3(2.0);
     //---------------
     // Shape(s)
     //---------------
@@ -461,6 +519,7 @@ int main(int argc, char* argv[])
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "useRoughnessTexture"), useRoughnessTexture);
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "useAlbedoTexture"), useAlbedoTexture);
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "useMetalnessTexture"), useMetalnessTexture);
+        glUniform1i(glGetUniformLocation(gBufferShader.Program, "useNormalTexture"), useNormalTexture);
         glUniform1i(glGetUniformLocation(gBufferShader.Program, "negativeNormals"), negativeNormals);
 
 
@@ -789,6 +848,7 @@ void imGuiSetup()
             ImGui::Checkbox("Negative Normals", &negativeNormals);
             ImGui::Checkbox("Roughness Texture", &useRoughnessTexture);
             ImGui::Checkbox("Albedo Texture", &useAlbedoTexture);
+            ImGui::Checkbox("Normal Texture", &useNormalTexture);
             ImGui::Checkbox("Metalness Texture", &useMetalnessTexture);
             if(!useAlbedoTexture)
                 ImGui::ColorEdit3("Albedo", (float*)&albedoColor);
@@ -980,6 +1040,11 @@ void imGuiSetup()
                         modelScale = glm::vec3(2.0f);
                         modelPosition = -objectModel.centroid();
 
+                        auto d = std::find(model_pool_paths.begin(), model_pool_paths.end(), static_cast<fs::path>(*current_pool_model)) - model_pool_paths.begin();
+                        if (d < invertNormal.size()) {
+                            negativeNormals = invertNormal[d];
+                        }
+
                         //set proper output dir
                         auto output = current_pool_model->generic_string();
                         const auto outputDir = fs::path(output.substr(0, output.size() - 4));
@@ -1071,6 +1136,11 @@ void imGuiSetup()
                             modelScale = glm::vec3(2.0f);
                             modelPosition = -objectModel.centroid();
 
+                            auto d = static_cast<int>(std::find(model_pool_paths.begin(), model_pool_paths.end(), static_cast<fs::path>(*current_pool_model)) - model_pool_paths.begin());
+                            if (d < invertNormal.size()) {
+                                negativeNormals = invertNormal[d];
+                            }
+
                             //set proper output dir
                             auto output = current_pool_model->generic_string();
                             const auto outputDir = fs::path(output.substr(0, output.size() - 4));
@@ -1080,6 +1150,8 @@ void imGuiSetup()
                             }
 
                             recording_path = outputDir.generic_string() + "/";
+
+                            useEnvmapIndex = 0;
 
                             // reset indices
                             index_fullRotationTicks = 0;
@@ -1153,6 +1225,10 @@ void imGuiSetup()
                             objectModel.loadModel(p.generic_string());
                             modelScale = glm::vec3(2.0f);
                             modelPosition = -objectModel.centroid();
+                            auto d = static_cast<int>(std::find(model_pool_paths.begin(), model_pool_paths.end(), p) - model_pool_paths.begin());
+                            if (d < invertNormal.size()) {
+                                negativeNormals = invertNormal[d];
+                            }
                         }
                     }
                 }

@@ -30,10 +30,9 @@ include_directories(src/camera/
                     api/glfw/include/
                     api/glm/
                     api/stb/
-					api/imgui/)
+		    api/imgui/)
 
-file(GLOB API_SOURCES api/glad/src/glad.c
-					  api/imgui/*.cpp)
+file(GLOB API_SOURCES api/glad/src/glad.c api/imgui/*.cpp)
 
 file(GLOB PROJECT_HEADERS src/camera/*.h
                           src/lighting/*.h
@@ -76,7 +75,7 @@ add_definitions(-DGLFW_INCLUDE_NONE
 add_executable(${PROJECT_NAME} ${PROJECT_SOURCES} ${PROJECT_HEADERS}
                                ${PROJECT_SHADERS} ${PROJECT_CONFIGS}
                                ${API_SOURCES})
-target_link_libraries(${PROJECT_NAME} assimp glfw
+target_link_libraries(${PROJECT_NAME} glfw assimp
                       ${GLFW_LIBRARIES} ${GLAD_LIBRARIES})
 set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${PROJECT_NAME})

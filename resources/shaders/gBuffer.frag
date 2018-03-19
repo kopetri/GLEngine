@@ -26,6 +26,7 @@ uniform float materialMetallicity;
 uniform bool useRoughnessTexture;
 uniform bool useAlbedoTexture;
 uniform bool useMetalnessTexture;
+uniform bool useNormalTexture;
 
 float LinearizeDepth(float depth);
 vec3 computeTexNormal(vec3 viewNormal, vec3 texNormal);
@@ -48,8 +49,10 @@ void main()
 		gAlbedo.a =  vec3(texture(texRoughness, TexCoords)).r;
 	else
 		gAlbedo.a =  materialRoughness;
-    gNormal.rgb = computeTexNormal(normal, texNormal);
-//    gNormal.rgb = normalize(normal);
+	if(useNormalTexture)
+		gNormal.rgb = computeTexNormal(normal, texNormal);
+	else
+	    gNormal.rgb = normalize(normal);
     if(useMetalnessTexture)
 		gNormal.a = vec3(texture(texMetalness, TexCoords)).r;
 	else
