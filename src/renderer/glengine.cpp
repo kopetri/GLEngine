@@ -128,15 +128,18 @@ bool isOrbitCamera = false;
 bool negativeNormals = false;
 bool keys[1024];
 
-int fullRotationTicks = 72;
-int halfRotationTicks = 12;
+int fullRotationTicks = 5;
+int halfRotationTicks = 2;
 int index_fullRotationTicks = fullRotationTicks + 1;
 int index_halfRotationTicks = halfRotationTicks + 1;
 int frame = 0;
 
+int useEnvmapIndex = 0;
 bool record = false;
 bool recording = false;
 std::string recording_path = "./";
+std::vector<fs::path> model_pool_paths;
+std::vector<fs::path>::iterator current_pool_model;
 
 glm::vec3 albedoColor = glm::vec3(1.0f);
 glm::vec3 materialF0 = glm::vec3(0.04f);  // UE4 dielectric
@@ -200,8 +203,6 @@ Light lightDirectional1;
 
 Shape quadRender;
 Shape envCubeRender;
-
-std::vector<fs::path> subway_paths;
 
 int main(int argc, char* argv[])
 {
@@ -299,12 +300,15 @@ int main(int argc, char* argv[])
     //---------
     // Model(s) 
     //---------
-    for (auto & p : fs::directory_iterator("resources/models/SUBWAY_2.0/"))
-        subway_paths.push_back(p);
-    //objectModel.loadModel("resources/models/shaderball/shaderball.obj");
-    //objectModel.loadModel("resources/models/shaderball/711365_7113FA.3ds");
-    objectModel.loadModel("resources/models/SUBWAY_2.0/7114F0.3ds");
-    modelScale = glm::vec3(2.0f);
+    for (auto & p : fs::directory_iterator("resources/models/pool/"))
+    {
+        if(!is_directory(p))
+        {
+            std::cout << "found model " << p.path().generic_string() << " in pool." << std::endl;
+            model_pool_paths.push_back(p);
+        }
+    }
+    objectModel.loadModel("resources/models/shaderball/shaderball.obj");
     //---------------
     // Shape(s)
     //---------------
@@ -690,6 +694,7 @@ int main(int argc, char* argv[])
                     std::swap(ptr[offset + 2], ptr[swapOffset + 2]);
                 }
             }
+            std::cout << "writing frame" << frame << " to " << recording_path << std::endl;
             stbi_write_png(std::string(recording_path+"frame" + std::to_string(frame++) + ".png").c_str(), WIDTH, HEIGHT, 4, ptr, WIDTH * channels);
             delete[] ptr;
         }
@@ -968,10 +973,47 @@ void imGuiSetup()
                 {
                     if (ImGui::Button("Start Record"))
                     {
+                        // set first model
+                        current_pool_model = model_pool_paths.begin();
+                        objectModel.~Model();
+                        objectModel.loadModel(current_pool_model->generic_string());
+                        modelScale = glm::vec3(2.0f);
+                        modelPosition = -objectModel.centroid();
+
+                        //set proper output dir
+                        auto output = current_pool_model->generic_string();
+                        const auto outputDir = fs::path(output.substr(0, output.size() - 4));
+                        if(!fs::is_directory(outputDir))
+                        {
+                            fs::create_directory(outputDir);
+                        }
+                        recording_path = outputDir.generic_string() + "/";
+
+                        // set background
+                        useEnvmapIndex = 0;
+                        envMapHDR.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);
+                        iblSetup();
+                        
+                        // reset indices
                         index_fullRotationTicks = 0;
                         index_halfRotationTicks = 0;
+
+                        // reset frame index
                         frame = 0;
+
+                        // set recording
                         recording = true;
+                    }
+
+                    if(recording)
+                    {
+                        if(ImGui::Button("Stop Recording"))
+                        {
+                            recording = false;
+                            index_fullRotationTicks = fullRotationTicks + 1;
+                            index_halfRotationTicks = halfRotationTicks + 1;
+                            current_pool_model = model_pool_paths.end();
+                        }
                     }
 
                     if (index_fullRotationTicks <= fullRotationTicks && index_halfRotationTicks <= halfRotationTicks)
@@ -986,7 +1028,69 @@ void imGuiSetup()
                         }
                     } else
                     {
-                        recording = false;
+                        if (useEnvmapIndex < 6 && recording)
+                        {
+                            ++useEnvmapIndex;
+                            switch (useEnvmapIndex)
+                            {
+                            case 0:
+                                envMapHDR.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);
+                                break;
+                            case 1:
+                                envMapHDR.setTextureHDR("resources/textures/hdr/canyon.hdr", "canyonHDR", true);
+                                break;
+                            case 2:
+                                envMapHDR.setTextureHDR("resources/textures/hdr/pisa.hdr", "pisaHDR", true);
+                                break;
+                            case 3:
+                                envMapHDR.setTextureHDR("resources/textures/hdr/loft.hdr", "loftHDR", true);
+                                break;
+                            case 4:
+                                envMapHDR.setTextureHDR("resources/textures/hdr/path.hdr", "pathHDR", true);
+                                break;
+                            case 5:
+                                envMapHDR.setTextureHDR("resources/textures/hdr/circus.hdr", "circusHDR", true);
+                                break;
+                            default:
+                                envMapHDR.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);
+                                break;
+                            }
+
+                            iblSetup();
+
+                            // reset indices
+                            index_fullRotationTicks = 0;
+                            index_halfRotationTicks = 0;
+                        } else
+                        if(current_pool_model != model_pool_paths.end() && recording)
+                        {
+                            // iterate next model
+                            ++current_pool_model;
+                            objectModel.~Model();
+                            objectModel.loadModel(current_pool_model->generic_string());
+                            modelScale = glm::vec3(2.0f);
+                            modelPosition = -objectModel.centroid();
+
+                            //set proper output dir
+                            auto output = current_pool_model->generic_string();
+                            const auto outputDir = fs::path(output.substr(0, output.size() - 4));
+                            if (!fs::is_directory(outputDir))
+                            {
+                                fs::create_directory(outputDir);
+                            }
+
+                            recording_path = outputDir.generic_string() + "/";
+
+                            // reset indices
+                            index_fullRotationTicks = 0;
+                            index_halfRotationTicks = 0;
+
+                            // reset frame index
+                            frame = 0;
+                        } else
+                        {
+                            recording = false;
+                        }
                     }
                 }
                 else
@@ -1039,9 +1143,9 @@ void imGuiSetup()
                     modelScale = glm::vec3(0.1f);
                 }
 
-                if (ImGui::TreeNode("Subway 2.0"))
+                if (ImGui::TreeNode("Pool"))
                 {
-                    for(auto p : subway_paths)
+                    for(auto p : model_pool_paths)
                     {
                         if (ImGui::Button(std::string(p.filename().generic_string()).c_str()))
                         {
