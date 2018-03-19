@@ -26,9 +26,50 @@ class Skybox
 
         Skybox();
         ~Skybox();
+        void setup();
         void setSkyboxTexture(const char* texPath);
         void renderToShader(Shader& shaderSkybox, glm::mat4& projection, glm::mat4& view);
         void setExposure(GLfloat aperture, GLfloat shutterSpeed, GLfloat iso);
+        void setTextureHDR(const char* texPath, std::string texName, bool texFlip);
+        void iblSetup(int WIDTH, int HEIGHT);
+
+        void bindEnvMapHDRTexture();
+        void bindEnvMapIrradianceTexture();
+        void bindEnvMapPrefilterTexture();
+        void bindEnvMapLUTTexture();
+private:
+    // buffer
+    GLuint envToCubeFBO;
+    GLuint envToCubeRBO;
+
+    GLuint irradianceFBO;
+    GLuint irradianceRBO;
+
+    GLuint prefilterFBO;
+    GLuint prefilterRBO;
+
+    GLuint brdfLUTFBO;
+    GLuint brdfLUTRBO;
+
+    // renderer
+    Shape quadRender;
+    Shape envCubeRender;
+
+    // shader
+    Shader latlongToCubeShader;
+    Shader irradianceIBLShader;
+    Shader prefilterIBLShader;
+    Shader integrateIBLShader;
+
+    // textures
+    Texture envMapCube;
+    Texture envMapHDR;
+    Texture envMapIrradiance;
+    Texture envMapPrefilter;
+    Texture envMapLUT;
+
+    glm::mat4 envMapProjection;
+    std::vector<glm::mat4> envMapView;
 };
 
 
