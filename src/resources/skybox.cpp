@@ -96,7 +96,7 @@ void Skybox::setTextureHDR(const char * texPath, std::string texName, bool texFl
 }
 
 
-void Skybox::iblSetup(int WIDTH, int HEIGHT)
+void Skybox::iblSetup(GLuint WIDTH, GLuint HEIGHT)
 {
     // Latlong to Cubemap conversion
     glGenFramebuffers(1, &envToCubeFBO);

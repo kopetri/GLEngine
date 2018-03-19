@@ -58,7 +58,6 @@ void imGuiSetup();
 void gBufferSetup();
 void saoSetup();
 void postprocessSetup();
-//void iblSetup();
 float random(float min, float max);
 
 //---------------------------------
