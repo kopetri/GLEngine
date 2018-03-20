@@ -34,7 +34,7 @@ Model::~Model()
 void Model::loadModel(std::string path)
 {
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(path,
+    const aiScene* scene = importer.ReadFile(MODEL_PATH + path,
         aiProcess_Triangulate |
         aiProcess_FlipUVs|
         aiProcess_FixInfacingNormals |
@@ -52,7 +52,6 @@ void Model::loadModel(std::string path)
         return;
     }
 
-    this->directory = path.substr(0, path.find_last_of('/'));
     this->processNode(scene->mRootNode, scene);
 }
 

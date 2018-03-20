@@ -29,7 +29,6 @@ class Model
 
     private:
         std::vector<Mesh> meshes;
-        std::string directory;
 
         void processNode(aiNode* node, const aiScene* scene);
         Mesh processMesh(aiMesh* mesh, const aiScene* scene);

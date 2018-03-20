@@ -25,7 +25,7 @@ void Texture::setTexture(const char* texPath, std::string texName, bool texFlip)
 {
     this->texType = GL_TEXTURE_2D;
 
-    std::string tempPath = std::string(texPath);
+    std::string tempPath = TEXTURE_PATH + std::string(texPath);
 
     if(texFlip)
         stbi_set_flip_vertically_on_load(true);
@@ -81,7 +81,7 @@ void Texture::setTextureHDR(const char* texPath, std::string texName, bool texFl
 {
     this->texType = GL_TEXTURE_2D;
 
-    std::string tempPath = std::string(texPath);
+    std::string tempPath = TEXTURE_PATH + std::string(texPath);
 
     if(texFlip)
         stbi_set_flip_vertically_on_load(true);

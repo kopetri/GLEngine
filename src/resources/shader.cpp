@@ -33,8 +33,8 @@ void Shader::setShader(const GLchar* vertexPath, const GLchar* fragmentPath)
 
     try
     {
-        vShaderFile.open(vertexPath);
-        fShaderFile.open(fragmentPath);
+        vShaderFile.open(SHADER_PATH + std::string(vertexPath));
+        fShaderFile.open(SHADER_PATH + std::string(fragmentPath));
         std::stringstream vShaderStream, fShaderStream;
 
         vShaderStream << vShaderFile.rdbuf();

@@ -82,3 +82,7 @@ target_link_libraries(${PROJECT_NAME} glfw assimp
                       ${GLFW_LIBRARIES} ${GLAD_LIBRARIES})
 set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${PROJECT_NAME})
+target_compile_definitions(${PROJECT_NAME} PRIVATE 
+	TEXTURE_PATH="${PROJECT_SOURCE_DIR}/resources/textures/"
+	MODEL_PATH="${PROJECT_SOURCE_DIR}/resources/models/"
+	SHADER_PATH="${PROJECT_SOURCE_DIR}/resources/shaders/")
