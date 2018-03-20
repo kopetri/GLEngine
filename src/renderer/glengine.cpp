@@ -284,15 +284,15 @@ int main(int argc, char* argv[])
     
     
 
-    simpleShader.setShader("resources/shaders/lighting/simple.vert", "resources/shaders/lighting/simple.frag");
-    lightingBRDFShader.setShader("resources/shaders/lighting/lightingBRDF.vert", "resources/shaders/lighting/lightingBRDF.frag");
+    simpleShader.setShader("lighting/simple.vert", "lighting/simple.frag");
+    lightingBRDFShader.setShader("lighting/lightingBRDF.vert", "lighting/lightingBRDF.frag");
     
     
     
 
-    firstpassPPShader.setShader("resources/shaders/postprocess/postprocess.vert", "resources/shaders/postprocess/firstpass.frag");
-    saoShader.setShader("resources/shaders/postprocess/sao.vert", "resources/shaders/postprocess/sao.frag");
-    saoBlurShader.setShader("resources/shaders/postprocess/sao.vert", "resources/shaders/postprocess/saoBlur.frag");
+    firstpassPPShader.setShader("postprocess/postprocess.vert", "postprocess/firstpass.frag");
+    saoShader.setShader("postprocess/sao.vert", "postprocess/sao.frag");
+    saoBlurShader.setShader("postprocess/sao.vert", "postprocess/saoBlur.frag");
 
 
     //-----------
@@ -311,25 +311,30 @@ int main(int argc, char* argv[])
     //    pbrMat.addTexture("texRoughness", ironRoughness);
     //    pbrMat.addTexture("texMetalness", ironMetalness);
     //    pbrMat.addTexture("texAO", ironAO);
-    //    pbrMat.addTexture("texAlbedo", TextureObject ("resources/textures/pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true));
-    //    pbrMat.addTexture("texNormal", TextureObject ("resources/textures/pbr/rustediron/rustediron_normal.png", "ironNormal", true));
-    //    pbrMat.addTexture("texRoughness", TextureObject ("resources/textures/pbr/rustediron/rustediron_roughness.png", "ironRoughness", true));
-    //    pbrMat.addTexture("texMetalness", TextureObject ("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness", true));
-    //    pbrMat.addTexture("texAO", TextureObject ("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO", true));
+    //    pbrMat.addTexture("texAlbedo", TextureObject ("pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true));
+    //    pbrMat.addTexture("texNormal", TextureObject ("pbr/rustediron/rustediron_normal.png", "ironNormal", true));
+    //    pbrMat.addTexture("texRoughness", TextureObject ("pbr/rustediron/rustediron_roughness.png", "ironRoughness", true));
+    //    pbrMat.addTexture("texMetalness", TextureObject ("pbr/rustediron/rustediron_metalness.png", "ironMetalness", true));
+    //    pbrMat.addTexture("texAO", TextureObject ("pbr/rustediron/rustediron_ao.png", "ironAO", true));
 
 
     //---------
     // Model(s) 
     //---------
-    for (auto & p : fs::directory_iterator("resources/models/pool/"))
+    for (auto & p : fs::directory_iterator(std::string(MODEL_PATH).append("pool/")))
     {
         if(!is_directory(p))
         {
-            std::cout << "found model " << p.path().generic_string() << " in pool." << std::endl;
-            model_pool_paths.push_back(p);
+            auto f = p.path().generic_string().substr(std::string(MODEL_PATH).size());
+            std::cout << "found model " << f << " in pool." << std::endl;
+            model_pool_paths.push_back(f);
         }
     }
-    
+
+    //---------------
+    // G-Buffer setup
+    //---------------
+    gBuffer.setup();
     gBuffer.loadModel(model_pool_paths[0].generic_string(), glm::vec3(2.0));
     //---------------
     // Shape(s)
@@ -374,14 +379,6 @@ int main(int argc, char* argv[])
     firstpassPPShader.useShader();
     glUniform1i(glGetUniformLocation(firstpassPPShader.Program, "sao"), 1);
     glUniform1i(glGetUniformLocation(firstpassPPShader.Program, "gEffects"), 2);
-
-    
-
-
-    //---------------
-    // G-Buffer setup
-    //---------------
-    gBufferSetup();
 
 
     //------------
@@ -546,11 +543,11 @@ int main(int argc, char* argv[])
             Light::lightDirectionalList[i].renderToShader(lightingBRDFShader, camera);
         }
 
-        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
-        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
-        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniform1f(glGetUniformLocation(lightingBRDFShader.Program, "materialRoughness"), materialRoughness);
-        glUniform1f(glGetUniformLocation(lightingBRDFShader.Program, "materialMetallicity"), materialMetallicity);
+        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(camera.GetViewMatrix())));
+        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(camera.GetProjectionMatrix())));
+        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(camera.GetViewMatrix()));
+        glUniform1f(glGetUniformLocation(lightingBRDFShader.Program, "materialRoughness"), gBuffer.materialRoughness);
+        glUniform1f(glGetUniformLocation(lightingBRDFShader.Program, "materialMetallicity"), gBuffer.materialMetallicity);
         glUniform3f(glGetUniformLocation(lightingBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
         glUniform1f(glGetUniformLocation(lightingBRDFShader.Program, "ambientIntensity"), ambientIntensity);
         glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "gBufferView"), gBufferView);
@@ -589,7 +586,7 @@ int main(int argc, char* argv[])
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);
         glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, gEffects);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.gEffects);
 
         quadRender.drawShape();
 
@@ -600,7 +597,7 @@ int main(int argc, char* argv[])
         // Forward Pass rendering
         //-----------------------
         glQueryCounter(queryIDForward[0], GL_TIMESTAMP);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer.gBuffer);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
 
@@ -614,15 +611,15 @@ int main(int argc, char* argv[])
         if (pointMode)
         {
             simpleShader.useShader();
-            glUniformMatrix4fv(glGetUniformLocation(simpleShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-            glUniformMatrix4fv(glGetUniformLocation(simpleShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+            glUniformMatrix4fv(glGetUniformLocation(simpleShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(camera.GetProjectionMatrix()));
+            glUniformMatrix4fv(glGetUniformLocation(simpleShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(camera.GetViewMatrix()));
 
             for (int i = 0; i < Light::lightPointList.size(); i++)
             {
                 glUniform4f(glGetUniformLocation(simpleShader.Program, "lightColor"), Light::lightPointList[i].getLightColor().r, Light::lightPointList[i].getLightColor().g, Light::lightPointList[i].getLightColor().b, Light::lightPointList[i].getLightColor().a);
 
                 if (Light::lightPointList[i].isMesh())
-                    Light::lightPointList[i].lightMesh.drawShape(simpleShader, view, projection, camera);
+                    Light::lightPointList[i].lightMesh.drawShape(simpleShader, camera.GetViewMatrix(), camera.GetProjectionMatrix(), camera);
             }
         }
         glQueryCounter(queryIDForward[1], GL_TIMESTAMP);
@@ -744,17 +741,17 @@ void imGuiSetup()
     {
         if (ImGui::TreeNode("Material"))
         {
-            ImGui::Checkbox("Negative Normals", &negativeNormals);
-            ImGui::Checkbox("Roughness Texture", &useRoughnessTexture);
-            ImGui::Checkbox("Albedo Texture", &useAlbedoTexture);
-            ImGui::Checkbox("Normal Texture", &useNormalTexture);
-            ImGui::Checkbox("Metalness Texture", &useMetalnessTexture);
-            if(!useAlbedoTexture)
-                ImGui::ColorEdit3("Albedo", (float*)&albedoColor);
-            if(!useRoughnessTexture)
-                ImGui::SliderFloat("Roughness", &materialRoughness, 0.0f, 1.0f);
-            if (!useMetalnessTexture)
-                ImGui::SliderFloat("Metalness", &materialMetallicity, 0.0f, 1.0f);
+            ImGui::Checkbox("Negative Normals", &gBuffer.negativeNormals);
+            ImGui::Checkbox("Roughness Texture", &gBuffer.useRoughnessTexture);
+            ImGui::Checkbox("Albedo Texture", &gBuffer.useAlbedoTexture);
+            ImGui::Checkbox("Normal Texture", &gBuffer.useNormalTexture);
+            ImGui::Checkbox("Metalness Texture", &gBuffer.useMetalnessTexture);
+            if(!gBuffer.useAlbedoTexture)
+                ImGui::ColorEdit3("Albedo", (float*)&gBuffer.albedoColor);
+            if(!gBuffer.useRoughnessTexture)
+                ImGui::SliderFloat("Roughness", &gBuffer.materialRoughness, 0.0f, 1.0f);
+            if (!gBuffer.useMetalnessTexture)
+                ImGui::SliderFloat("Metalness", &gBuffer.materialMetallicity, 0.0f, 1.0f);
             ImGui::SliderFloat3("F0", (float*)&materialF0, 0.0f, 1.0f);
             ImGui::SliderFloat("Ambient Intensity", &ambientIntensity, 0.0f, 1.0f);
 
@@ -835,37 +832,37 @@ void imGuiSetup()
             {
                 if (ImGui::Button("Appartment"))
                 {
-                    skybox.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);
+                    skybox.setTextureHDR("hdr/appart.hdr", "appartHDR", true);
                     skybox.iblSetup(WIDTH, HEIGHT);
                 }
 
                 if (ImGui::Button("Pisa"))
                 {
-                    skybox.setTextureHDR("resources/textures/hdr/pisa.hdr", "pisaHDR", true);
+                    skybox.setTextureHDR("hdr/pisa.hdr", "pisaHDR", true);
                     skybox.iblSetup(WIDTH, HEIGHT);
                 }
 
                 if (ImGui::Button("Canyon"))
                 {
-                    skybox.setTextureHDR("resources/textures/hdr/canyon.hdr", "canyonHDR", true);
+                    skybox.setTextureHDR("hdr/canyon.hdr", "canyonHDR", true);
                     skybox.iblSetup(WIDTH, HEIGHT);
                 }
 
                 if (ImGui::Button("Loft"))
                 {
-                    skybox.setTextureHDR("resources/textures/hdr/loft.hdr", "loftHDR", true);
+                    skybox.setTextureHDR("hdr/loft.hdr", "loftHDR", true);
                     skybox.iblSetup(WIDTH, HEIGHT);
                 }
 
                 if (ImGui::Button("Path"))
                 {
-                    skybox.setTextureHDR("resources/textures/hdr/path.hdr", "pathHDR", true);
+                    skybox.setTextureHDR("hdr/path.hdr", "pathHDR", true);
                     skybox.iblSetup(WIDTH, HEIGHT);
                 }
 
                 if (ImGui::Button("Circus"))
                 {
-                    skybox.setTextureHDR("resources/textures/hdr/circus.hdr", "circusHDR", true);
+                    skybox.setTextureHDR("hdr/circus.hdr", "circusHDR", true);
                     skybox.iblSetup(WIDTH, HEIGHT);
                 }
 
@@ -934,14 +931,11 @@ void imGuiSetup()
                     {
                         // set first model
                         current_pool_model = model_pool_paths.begin();
-                        objectModel.~Model();
-                        objectModel.loadModel(current_pool_model->generic_string());
-                        modelScale = glm::vec3(2.0f);
-                        modelPosition = -objectModel.centroid();
+                        gBuffer.loadModel(current_pool_model->generic_string(), glm::vec3(2.0f));
 
                         auto d = std::find(model_pool_paths.begin(), model_pool_paths.end(), static_cast<fs::path>(*current_pool_model)) - model_pool_paths.begin();
                         if (d < invertNormal.size()) {
-                            negativeNormals = invertNormal[d];
+                            gBuffer.negativeNormals = invertNormal[d];
                         }
 
                         //set proper output dir
@@ -955,7 +949,7 @@ void imGuiSetup()
 
                         // set background
                         useEnvmapIndex = 0;
-                        skybox.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);
+                        skybox.setTextureHDR("hdr/appart.hdr", "appartHDR", true);
                         skybox.iblSetup(WIDTH, HEIGHT);
                         
                         // reset indices
@@ -998,25 +992,25 @@ void imGuiSetup()
                             switch (useEnvmapIndex)
                             {
                             case 0:
-                                skybox.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);
+                                skybox.setTextureHDR("hdr/appart.hdr", "appartHDR", true);
                                 break;
                             case 1:
-                                skybox.setTextureHDR("resources/textures/hdr/canyon.hdr", "canyonHDR", true);
+                                skybox.setTextureHDR("hdr/canyon.hdr", "canyonHDR", true);
                                 break;
                             case 2:
-                                skybox.setTextureHDR("resources/textures/hdr/pisa.hdr", "pisaHDR", true);
+                                skybox.setTextureHDR("hdr/pisa.hdr", "pisaHDR", true);
                                 break;
                             case 3:
-                                skybox.setTextureHDR("resources/textures/hdr/loft.hdr", "loftHDR", true);
+                                skybox.setTextureHDR("hdr/loft.hdr", "loftHDR", true);
                                 break;
                             case 4:
-                                skybox.setTextureHDR("resources/textures/hdr/path.hdr", "pathHDR", true);
+                                skybox.setTextureHDR("hdr/path.hdr", "pathHDR", true);
                                 break;
                             case 5:
-                                skybox.setTextureHDR("resources/textures/hdr/circus.hdr", "circusHDR", true);
+                                skybox.setTextureHDR("hdr/circus.hdr", "circusHDR", true);
                                 break;
                             default:
-                                skybox.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);
+                                skybox.setTextureHDR("hdr/appart.hdr", "appartHDR", true);
                                 break;
                             }
 
@@ -1030,14 +1024,11 @@ void imGuiSetup()
                         {
                             // iterate next model
                             ++current_pool_model;
-                            objectModel.~Model();
-                            objectModel.loadModel(current_pool_model->generic_string());
-                            modelScale = glm::vec3(2.0f);
-                            modelPosition = -objectModel.centroid();
+                            gBuffer.loadModel(current_pool_model->generic_string(), glm::vec3(2.0f));
 
                             auto d = static_cast<int>(std::find(model_pool_paths.begin(), model_pool_paths.end(), static_cast<fs::path>(*current_pool_model)) - model_pool_paths.begin());
                             if (d < invertNormal.size()) {
-                                negativeNormals = invertNormal[d];
+                                gBuffer.negativeNormals = invertNormal[d];
                             }
 
                             //set proper output dir
@@ -1087,31 +1078,25 @@ void imGuiSetup()
 
         if (ImGui::TreeNode("Object"))
         {
-            ImGui::SliderFloat3("Position", (float*)&modelPosition, -5.0f, 5.0f);
-            ImGui::SliderFloat("Rotation Speed", &modelRotationSpeed, 0.0f, 50.0f);
-            ImGui::SliderFloat3("Rotation Axis", (float*)&modelRotationAxis, 0.0f, 1.0f);
+            ImGui::SliderFloat3("Position", (float*)&gBuffer.modelPosition, -5.0f, 5.0f);
+            ImGui::SliderFloat("Rotation Speed", &gBuffer.modelRotationSpeed, 0.0f, 50.0f);
+            ImGui::SliderFloat3("Rotation Axis", (float*)&gBuffer.modelRotationAxis, 0.0f, 1.0f);
 
             if (ImGui::TreeNode("Model"))
             {
                 if (ImGui::Button("Sphere"))
                 {
-                    objectModel.~Model();
-                    objectModel.loadModel("resources/models/sphere/sphere.obj");
-                    modelScale = glm::vec3(0.6f);
+                    gBuffer.loadModel("sphere/sphere.obj", glm::vec3(0.6f));
                 }
 
                 if (ImGui::Button("Teapot"))
                 {
-                    objectModel.~Model();
-                    objectModel.loadModel("resources/models/teapot/teapot.obj");
-                    modelScale = glm::vec3(0.6f);
+                    gBuffer.loadModel("teapot/teapot.obj", glm::vec3(0.6f));
                 }
 
                 if (ImGui::Button("Shader ball"))
                 {
-                    objectModel.~Model();
-                    objectModel.loadModel("resources/models/shaderball/shaderball.obj");
-                    modelScale = glm::vec3(0.1f);
+                    gBuffer.loadModel("shaderball/shaderball.obj", glm::vec3(0.1f));
                 }
 
                 if (ImGui::TreeNode("Pool"))
@@ -1120,13 +1105,10 @@ void imGuiSetup()
                     {
                         if (ImGui::Button(std::string(p.filename().generic_string()).c_str()))
                         {
-                            objectModel.~Model();
-                            objectModel.loadModel(p.generic_string());
-                            modelScale = glm::vec3(2.0f);
-                            modelPosition = -objectModel.centroid();
+                            gBuffer.loadModel(p.generic_string(), glm::vec3(2.0f));
                             auto d = static_cast<int>(std::find(model_pool_paths.begin(), model_pool_paths.end(), p) - model_pool_paths.begin());
                             if (d < invertNormal.size()) {
-                                negativeNormals = invertNormal[d];
+                                gBuffer.negativeNormals = invertNormal[d];
                             }
                         }
                     }
@@ -1139,44 +1121,44 @@ void imGuiSetup()
             {
                 if (ImGui::Button("Rusted iron"))
                 {
-                    objectAlbedo.setTexture("resources/textures/pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true);
-                    objectNormal.setTexture("resources/textures/pbr/rustediron/rustediron_normal.png", "ironNormal", true);
-                    objectRoughness.setTexture("resources/textures/pbr/rustediron/rustediron_roughness.png", "ironRoughness", true);
-                    objectMetalness.setTexture("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
-                    objectAO.setTexture("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO", true);
+                    gBuffer.setTexture(GBuffer::Albedo, "pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true);
+                    gBuffer.setTexture(GBuffer::Normal, "pbr/rustediron/rustediron_normal.png", "ironNormal", true);
+                    gBuffer.setTexture(GBuffer::Roughness, "pbr/rustediron/rustediron_roughness.png", "ironRoughness", true);
+                    gBuffer.setTexture(GBuffer::Metalness, "pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
+                    gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/rustediron/rustediron_ao.png", "ironAO", true);
 
                     materialF0 = glm::vec3(0.04f);
                 }
 
                 if (ImGui::Button("Gold"))
                 {
-                    objectAlbedo.setTexture("resources/textures/pbr/gold/gold_albedo.png", "goldAlbedo", true);
-                    objectNormal.setTexture("resources/textures/pbr/gold/gold_normal.png", "goldNormal", true);
-                    objectRoughness.setTexture("resources/textures/pbr/gold/gold_roughness.png", "goldRoughness", true);
-                    objectMetalness.setTexture("resources/textures/pbr/gold/gold_metalness.png", "goldMetalness", true);
-                    objectAO.setTexture("resources/textures/pbr/gold/gold_ao.png", "goldAO", true);
+                    gBuffer.setTexture(GBuffer::Albedo, "pbr/gold/gold_albedo.png", "goldAlbedo", true);
+                    gBuffer.setTexture(GBuffer::Normal, "pbr/gold/gold_normal.png", "goldNormal", true);
+                    gBuffer.setTexture(GBuffer::Roughness, "pbr/gold/gold_roughness.png", "goldRoughness", true);
+                    gBuffer.setTexture(GBuffer::Metalness, "pbr/gold/gold_metalness.png", "goldMetalness", true);
+                    gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/gold/gold_ao.png", "goldAO", true);
 
                     materialF0 = glm::vec3(1.0f, 0.72f, 0.29f);
                 }
 
                 if (ImGui::Button("Ceramic"))
                 {
-                    objectAlbedo.setTexture("resources/textures/pbr/ceramic/ceramic_albedo.png", "goldAlbedo", true);
-                    objectNormal.setTexture("resources/textures/pbr/ceramic/ceramic_normal.png", "goldNormal", true);
-                    objectRoughness.setTexture("resources/textures/pbr/ceramic/ceramic_roughness.png", "goldRoughness", true);
-                    objectMetalness.setTexture("resources/textures/pbr/ceramic/ceramic_metalness.png", "goldMetalness", true);
-                    objectAO.setTexture("resources/textures/pbr/ceramic/ceramic_ao.png", "goldAO", true);
+                    gBuffer.setTexture(GBuffer::Albedo, "pbr/ceramic/ceramic_albedo.png", "goldAlbedo", true);
+                    gBuffer.setTexture(GBuffer::Normal, "pbr/ceramic/ceramic_normal.png", "goldNormal", true);
+                    gBuffer.setTexture(GBuffer::Roughness, "pbr/ceramic/ceramic_roughness.png", "goldRoughness", true);
+                    gBuffer.setTexture(GBuffer::Metalness, "pbr/ceramic/ceramic_metalness.png", "goldMetalness", true);
+                    gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/ceramic/ceramic_ao.png", "goldAO", true);
 
                     materialF0 = glm::vec3(1.0f, 1.0f, 1.0f);
                 }
 
                 if (ImGui::Button("Woodfloor"))
                 {
-                    objectAlbedo.setTexture("resources/textures/pbr/woodfloor/woodfloor_albedo.png", "woodfloorAlbedo", true);
-                    objectNormal.setTexture("resources/textures/pbr/woodfloor/woodfloor_normal.png", "woodfloorNormal", true);
-                    objectRoughness.setTexture("resources/textures/pbr/woodfloor/woodfloor_roughness.png", "woodfloorRoughness", true);
-                    objectMetalness.setTexture("resources/textures/pbr/woodfloor/woodfloor_metalness.png", "woodfloorMetalness", true);
-                    objectAO.setTexture("resources/textures/pbr/woodfloor/woodfloor_ao.png", "woodfloorAO", true);
+                    gBuffer.setTexture(GBuffer::Albedo, "pbr/woodfloor/woodfloor_albedo.png", "woodfloorAlbedo", true);
+                    gBuffer.setTexture(GBuffer::Normal, "pbr/woodfloor/woodfloor_normal.png", "woodfloorNormal", true);
+                    gBuffer.setTexture(GBuffer::Roughness, "pbr/woodfloor/woodfloor_roughness.png", "woodfloorRoughness", true);
+                    gBuffer.setTexture(GBuffer::Metalness, "pbr/woodfloor/woodfloor_metalness.png", "woodfloorMetalness", true);
+                    gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/woodfloor/woodfloor_ao.png", "woodfloorAO", true);
 
                     materialF0 = glm::vec3(0.04f);
                 }

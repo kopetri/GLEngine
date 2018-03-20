@@ -39,12 +39,12 @@ void Skybox::setup()
     envCubeRender.setShape("cube", glm::vec3(0.0f));
     quadRender.setShape("quad", glm::vec3(0.0f));
     // init shader
-    latlongToCubeShader.setShader("resources/shaders/latlongToCube.vert", "resources/shaders/latlongToCube.frag");
-    irradianceIBLShader.setShader("resources/shaders/lighting/irradianceIBL.vert", "resources/shaders/lighting/irradianceIBL.frag");
-    prefilterIBLShader.setShader("resources/shaders/lighting/prefilterIBL.vert", "resources/shaders/lighting/prefilterIBL.frag");
-    integrateIBLShader.setShader("resources/shaders/lighting/integrateIBL.vert", "resources/shaders/lighting/integrateIBL.frag");
+    latlongToCubeShader.setShader("latlongToCube.vert", "latlongToCube.frag");
+    irradianceIBLShader.setShader("lighting/irradianceIBL.vert", "lighting/irradianceIBL.frag");
+    prefilterIBLShader.setShader("lighting/prefilterIBL.vert", "lighting/prefilterIBL.frag");
+    integrateIBLShader.setShader("lighting/integrateIBL.vert", "lighting/integrateIBL.frag");
     // init texture
-    envMapHDR.setTextureHDR("resources/textures/hdr/appart.hdr", "appartHDR", true);
+    envMapHDR.setTextureHDR("hdr/appart.hdr", "appartHDR", true);
     envMapCube.setTextureCube(512, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR);
     envMapIrradiance.setTextureCube(32, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR);
     envMapPrefilter.setTextureCube(128, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR);

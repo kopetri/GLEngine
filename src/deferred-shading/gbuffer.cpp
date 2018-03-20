@@ -40,23 +40,23 @@ void GBuffer::setup()
 {
     // init shader
     shader = std::make_shared<Shader>();
-    shader->setShader("resources/shaders/gBuffer.vert", "resources/shaders/gBuffer.frag");
+    shader->setShader("gBuffer.vert", "gBuffer.frag");
 
     // init textures
     objectAlbedo = std::make_shared<Texture>();
-    objectAlbedo->setTexture("resources/textures/pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true);
+    objectAlbedo->setTexture("pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true);
     objectNormal = std::make_shared<Texture>();
-    objectNormal->setTexture("resources/textures/pbr/rustediron/rustediron_normal.png", "ironNormal", true);
+    objectNormal->setTexture("pbr/rustediron/rustediron_normal.png", "ironNormal", true);
     objectRoughness = std::make_shared<Texture>();
-    objectRoughness->setTexture("resources/textures/pbr/rustediron/rustediron_roughness.png", "ironRoughness", true);
+    objectRoughness->setTexture("pbr/rustediron/rustediron_roughness.png", "ironRoughness", true);
     objectMetalness = std::make_shared<Texture>();
-    objectMetalness->setTexture("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
+    objectMetalness->setTexture("pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
     objectAO = std::make_shared<Texture>();
-    objectAO->setTexture("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO", true);
+    objectAO->setTexture("pbr/rustediron/rustediron_ao.png", "ironAO", true);
 
     // init model
     objectModel = std::make_shared<Model>();
-    objectModel->loadModel("resources/models/shaderball/shaderball.obj");
+    objectModel->loadModel("shaderball/shaderball.obj");
 
     // init buffers
     glGenFramebuffers(1, &gBuffer);
@@ -175,7 +175,32 @@ void GBuffer::draw(Camera camera)
 
 void GBuffer::loadModel(const std::string path, const glm::vec3 scale)
 {
-    objectModel->~Model();
-    objectModel->loadModel("resources/models/teapot/teapot.obj");
+    objectModel = std::make_shared<Model>();
+    objectModel->loadModel(path);
     modelScale = scale;
+}
+
+void GBuffer::setTexture(TextureUsage texUse, const char* path, std::string name, bool flip)
+{
+    switch (texUse)
+    {
+    case Normal:
+        objectNormal->setTexture(path, name, flip);
+        break;
+    case Albedo:
+        objectAlbedo->setTexture(path, name, flip);
+        break;
+    case Roughness:
+        objectRoughness->setTexture(path, name, flip);
+        break;
+    case Metalness:
+        objectMetalness->setTexture(path, name, flip);
+        break;
+    case AmbientOcclusion:
+        objectAO->setTexture(path, name, flip);
+        break;
+    default:
+        std::cout << "unnown TextureUsage given..." << std::endl;
+        break;
+    }
 }

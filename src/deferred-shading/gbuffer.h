@@ -11,6 +11,15 @@ class Model;
 class GBuffer
 {
 public:
+    enum TextureUsage : int
+    {
+        Normal = 0,
+        Albedo = 1,
+        Roughness = 2,
+        AmbientOcclusion = 3,
+        Metalness = 4
+    };
+
     GBuffer(const GLuint width, const GLuint height);
     ~GBuffer();
 
@@ -41,6 +50,7 @@ public:
     glm::vec3 albedoColor;
 
     void loadModel(const std::string path, const glm::vec3 scale);
+    void setTexture(TextureUsage texUse, const char* path, std::string name, bool flip);
 private:
     GLuint width;
     GLuint height;
