@@ -12,6 +12,8 @@
 #include "material.h"
 #include "gbuffer.h"
 #include "ssao.h"
+#include "lighting.h"
+#include "postprocess.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -54,10 +56,9 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 //---------------------
 // Functions prototypes
 //---------------------
-
+void captureFrame();
 void cameraMove();
 void imGuiSetup();
-void postprocessSetup();
 float random(float min, float max);
 
 //---------------------------------
@@ -66,16 +67,6 @@ float random(float min, float max);
 
 GLuint WIDTH = 512;
 GLuint HEIGHT = 512;
-
-GLuint screenQuadVAO, screenQuadVBO;
-GLuint postprocessFBO, postprocessBuffer;
-
-GLint gBufferView = 1;
-GLint tonemappingMode = 1;
-GLint lightDebugMode = 3;
-GLint attenuationMode = 2;
-
-GLint motionBlurMaxSamples = 32;
 
 GLfloat lastX = WIDTH / 2;
 GLfloat lastY = HEIGHT / 2;
@@ -88,27 +79,13 @@ GLfloat deltaPostprocessTime = 0.0f;
 GLfloat deltaForwardTime = 0.0f;
 GLfloat deltaGUITime = 0.0f;
 
-
-GLfloat ambientIntensity = 0.005f;
-
-GLfloat lightPointRadius1 = 3.0f;
-GLfloat lightPointRadius2 = 3.0f;
-GLfloat lightPointRadius3 = 3.0f;
-GLfloat cameraAperture = 16.0f;
-GLfloat cameraShutterSpeed = 0.5f;
-GLfloat cameraISO = 1000.0f;
-
 GLfloat theta = 0.0f;
 GLfloat rho = 0.0f;
 GLfloat radius = 1.0f;
 
 bool cameraMode;
-bool pointMode = false;
-bool directionalMode = false;
-bool iblMode = true;
-bool saoMode = false;
-bool fxaaMode = false;
-bool motionBlurMode = false;
+
+
 bool screenMode = false;
 bool firstMouse = true;
 bool guiIsOpen = true;
@@ -186,15 +163,7 @@ std::vector<fs::path> model_pool_paths;
 std::vector<fs::path>::iterator current_pool_model;
 
 
-glm::vec3 materialF0 = glm::vec3(0.04f);  // UE4 dielectric
-glm::vec3 lightPointPosition1 = glm::vec3(1.5f, 0.75f, 1.0f);
-glm::vec3 lightPointPosition2 = glm::vec3(-1.5f, 1.0f, 1.0f);
-glm::vec3 lightPointPosition3 = glm::vec3(0.0f, 0.75f, -1.2f);
-glm::vec3 lightPointColor1 = glm::vec3(1.0f);
-glm::vec3 lightPointColor2 = glm::vec3(1.0f);
-glm::vec3 lightPointColor3 = glm::vec3(1.0f);
-glm::vec3 lightDirectionalDirection1 = glm::vec3(-0.2f, -1.0f, -0.3f);
-glm::vec3 lightDirectionalColor1 = glm::vec3(1.0f);
+
 
 
 
@@ -203,24 +172,17 @@ Camera camera(static_cast<GLfloat>(WIDTH), static_cast<GLfloat>(HEIGHT), 0.1f, 1
 Skybox skybox;
 GBuffer gBuffer(WIDTH, HEIGHT);
 SSAO ssao(WIDTH, HEIGHT);
+Lighting lighting(WIDTH, HEIGHT);
+Postprocess postprocess(WIDTH, HEIGHT);
 
-Shader simpleShader;
-Shader lightingBRDFShader;
+
 
 Shape quadRender;
 
-Shader firstpassPPShader;
-Shader saoShader;
-Shader saoBlurShader;
+
 
 Material pbrMat;
 
-
-
-Light lightPoint1;
-Light lightPoint2;
-Light lightPoint3;
-Light lightDirectional1;
 
 int main(int argc, char* argv[])
 {
@@ -264,29 +226,6 @@ int main(int argc, char* argv[])
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
-    //----------
-    // Shader(s)
-    //----------
-    
-    
-
-    simpleShader.setShader("lighting/simple.vert", "lighting/simple.frag");
-    lightingBRDFShader.setShader("lighting/lightingBRDF.vert", "lighting/lightingBRDF.frag");
-    
-    
-    
-
-    firstpassPPShader.setShader("postprocess/postprocess.vert", "postprocess/firstpass.frag");
-    
-
-
-    //-----------
-    // Textures(s)
-    //-----------
-    
-
-
-
     //-----------
     // Material(s)
     //-----------
@@ -318,15 +257,6 @@ int main(int argc, char* argv[])
 
     quadRender.setShape("quad", glm::vec3(0.0f));
 
-    //----------------
-    // Light source(s)
-    //----------------
-    lightPoint1.setLight(lightPointPosition1, glm::vec4(lightPointColor1, 1.0f), lightPointRadius1, true);
-    lightPoint2.setLight(lightPointPosition2, glm::vec4(lightPointColor2, 1.0f), lightPointRadius2, true);
-    lightPoint3.setLight(lightPointPosition3, glm::vec4(lightPointColor3, 1.0f), lightPointRadius3, true);
-
-    lightDirectional1.setLight(lightDirectionalDirection1, glm::vec4(lightDirectionalColor1, 1.0f));
-
 
     //-------
     // Skybox
@@ -336,22 +266,10 @@ int main(int argc, char* argv[])
     //---------------------------------------------------------
     // Set the samplers for the lighting/post-processing passes
     //---------------------------------------------------------
-    lightingBRDFShader.useShader();
-    glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "gPosition"), 0);
-    glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "gAlbedo"), 1);
-    glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "gNormal"), 2);
-    glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "gEffects"), 3);
-    glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "sao"), 4);
-    glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "envMap"), 5);
-    glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "envMapIrradiance"), 6);
-    glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "envMapPrefilter"), 7);
-    glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "envMapLUT"), 8);
+    lighting.setup();
+    lighting.setRender(quadRender);
 
     
-
-    firstpassPPShader.useShader();
-    glUniform1i(glGetUniformLocation(firstpassPPShader.Program, "sao"), 1);
-    glUniform1i(glGetUniformLocation(firstpassPPShader.Program, "gEffects"), 2);
 
     //---------------
     // G-Buffer setup
@@ -368,7 +286,8 @@ int main(int argc, char* argv[])
     //---------------------
     // Postprocessing setup
     //---------------------
-    postprocessSetup();
+    postprocess.setup(lighting.framebuffer());
+    postprocess.setRender(quadRender);
 
 
     //----------
@@ -428,8 +347,7 @@ int main(int argc, char* argv[])
         // sao rendering
         //---------------
         glQueryCounter(queryIDSAO[0], GL_TIMESTAMP);
-        if (saoMode)
-            ssao.draw(gBuffer);
+        if (postprocess.saoMode) ssao.draw(gBuffer);
         glQueryCounter(queryIDSAO[1], GL_TIMESTAMP);
 
 
@@ -437,69 +355,7 @@ int main(int argc, char* argv[])
         // Lighting Pass rendering
         //------------------------
         glQueryCounter(queryIDLighting[0], GL_TIMESTAMP);
-        glBindFramebuffer(GL_FRAMEBUFFER, postprocessFBO);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        lightingBRDFShader.useShader();
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, gBuffer.gPosition);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, gBuffer.gAlbedo);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, gBuffer.gNormal);
-        glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, gBuffer.gEffects);
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, ssao.saoBlurBuffer);
-        glActiveTexture(GL_TEXTURE5);
-        skybox.bindEnvMapHDRTexture();
-        glActiveTexture(GL_TEXTURE6);
-        skybox.bindEnvMapIrradianceTexture();
-        glActiveTexture(GL_TEXTURE7);
-        skybox.bindEnvMapPrefilterTexture();
-        glActiveTexture(GL_TEXTURE8);
-        skybox.bindEnvMapLUTTexture();
-
-        lightPoint1.setLightPosition(lightPointPosition1);
-        lightPoint2.setLightPosition(lightPointPosition2);
-        lightPoint3.setLightPosition(lightPointPosition3);
-        lightPoint1.setLightColor(glm::vec4(lightPointColor1, 1.0f));
-        lightPoint2.setLightColor(glm::vec4(lightPointColor2, 1.0f));
-        lightPoint3.setLightColor(glm::vec4(lightPointColor3, 1.0f));
-        lightPoint1.setLightRadius(lightPointRadius1);
-        lightPoint2.setLightRadius(lightPointRadius2);
-        lightPoint3.setLightRadius(lightPointRadius3);
-
-        for (int i = 0; i < Light::lightPointList.size(); i++)
-        {
-            Light::lightPointList[i].renderToShader(lightingBRDFShader, camera);
-        }
-
-        lightDirectional1.setLightDirection(lightDirectionalDirection1);
-        lightDirectional1.setLightColor(glm::vec4(lightDirectionalColor1, 1.0f));
-
-        for (int i = 0; i < Light::lightDirectionalList.size(); i++)
-        {
-            Light::lightDirectionalList[i].renderToShader(lightingBRDFShader, camera);
-        }
-
-        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(camera.GetViewMatrix())));
-        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(camera.GetProjectionMatrix())));
-        glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(camera.GetViewMatrix()));
-        glUniform1f(glGetUniformLocation(lightingBRDFShader.Program, "materialRoughness"), gBuffer.materialRoughness);
-        glUniform1f(glGetUniformLocation(lightingBRDFShader.Program, "materialMetallicity"), gBuffer.materialMetallicity);
-        glUniform3f(glGetUniformLocation(lightingBRDFShader.Program, "materialF0"), materialF0.r, materialF0.g, materialF0.b);
-        glUniform1f(glGetUniformLocation(lightingBRDFShader.Program, "ambientIntensity"), ambientIntensity);
-        glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "gBufferView"), gBufferView);
-        glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "pointMode"), pointMode);
-        glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "directionalMode"), directionalMode);
-        glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "iblMode"), iblMode);
-        glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "attenuationMode"), attenuationMode);
-
-        quadRender.drawShape();
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        lighting.draw(camera, gBuffer, ssao, skybox);
         glQueryCounter(queryIDLighting[1], GL_TIMESTAMP);
 
 
@@ -507,30 +363,7 @@ int main(int argc, char* argv[])
         // Post-processing Pass rendering
         //-------------------------------
         glQueryCounter(queryIDPostprocess[0], GL_TIMESTAMP);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        firstpassPPShader.useShader();
-        glUniform1i(glGetUniformLocation(firstpassPPShader.Program, "gBufferView"), gBufferView);
-        glUniform2f(glGetUniformLocation(firstpassPPShader.Program, "screenTextureSize"), 1.0f / WIDTH, 1.0f / HEIGHT);
-        glUniform1f(glGetUniformLocation(firstpassPPShader.Program, "cameraAperture"), cameraAperture);
-        glUniform1f(glGetUniformLocation(firstpassPPShader.Program, "cameraShutterSpeed"), cameraShutterSpeed);
-        glUniform1f(glGetUniformLocation(firstpassPPShader.Program, "cameraISO"), cameraISO);
-        glUniform1i(glGetUniformLocation(firstpassPPShader.Program, "saoMode"), saoMode);
-        glUniform1i(glGetUniformLocation(firstpassPPShader.Program, "fxaaMode"), fxaaMode);
-        glUniform1i(glGetUniformLocation(firstpassPPShader.Program, "motionBlurMode"), motionBlurMode);
-        glUniform1f(glGetUniformLocation(firstpassPPShader.Program, "motionBlurScale"), int(ImGui::GetIO().Framerate) / 60.0f);
-        glUniform1i(glGetUniformLocation(firstpassPPShader.Program, "motionBlurMaxSamples"), motionBlurMaxSamples);
-        glUniform1i(glGetUniformLocation(firstpassPPShader.Program, "tonemappingMode"), tonemappingMode);
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, postprocessBuffer);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, ssao.saoBlurBuffer);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, gBuffer.gEffects);
-
-        quadRender.drawShape();
-
+        postprocess.draw(gBuffer, ssao, lighting);
         glQueryCounter(queryIDPostprocess[1], GL_TIMESTAMP);
 
 
@@ -538,31 +371,7 @@ int main(int argc, char* argv[])
         // Forward Pass rendering
         //-----------------------
         glQueryCounter(queryIDForward[0], GL_TIMESTAMP);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer.gBuffer);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-
-
-        // Copy the depth informations from the Geometry Pass into the default framebuffer
-        glBlitFramebuffer(0, 0, WIDTH, HEIGHT, 0, 0, WIDTH, HEIGHT, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        
-
-        // Shape(s) rendering
-        if (pointMode)
-        {
-            simpleShader.useShader();
-            glUniformMatrix4fv(glGetUniformLocation(simpleShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(camera.GetProjectionMatrix()));
-            glUniformMatrix4fv(glGetUniformLocation(simpleShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(camera.GetViewMatrix()));
-
-            for (int i = 0; i < Light::lightPointList.size(); i++)
-            {
-                glUniform4f(glGetUniformLocation(simpleShader.Program, "lightColor"), Light::lightPointList[i].getLightColor().r, Light::lightPointList[i].getLightColor().g, Light::lightPointList[i].getLightColor().b, Light::lightPointList[i].getLightColor().a);
-
-                if (Light::lightPointList[i].isMesh())
-                    Light::lightPointList[i].lightMesh.drawShape(simpleShader, camera.GetViewMatrix(), camera.GetProjectionMatrix(), camera);
-            }
-        }
+        lighting.forwardPass(camera, gBuffer);
         glQueryCounter(queryIDForward[1], GL_TIMESTAMP);
 
         //----------------
@@ -570,29 +379,7 @@ int main(int argc, char* argv[])
         //----------------
         if(recording)
         {
-            const auto channels = 4;
-            unsigned char* ptr = new unsigned char[WIDTH * HEIGHT * channels];
-            glPixelStorei(GL_PACK_ALIGNMENT, 1);
-            glReadPixels(0, 0, WIDTH, HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, ptr);
-            // glReadPixels reads the given rectangle from bottom-left to top-right, so we must
-            // reverse it
-            for (int y = 0; y < HEIGHT / 2; y++)
-            {
-                const int swapY = HEIGHT - y - 1;
-                for (int x = 0; x < WIDTH; x++)
-                {
-                    const int offset = channels * (x + y * WIDTH);
-                    const int swapOffset = channels * (x + swapY * WIDTH);
-
-                    // Swap R, G and B of the 2 pixels
-                    std::swap(ptr[offset + 0], ptr[swapOffset + 0]);
-                    std::swap(ptr[offset + 1], ptr[swapOffset + 1]);
-                    std::swap(ptr[offset + 2], ptr[swapOffset + 2]);
-                }
-            }
-            std::cout << "writing frame" << frame << " to " << recording_path << std::endl;
-            stbi_write_png(std::string(recording_path+"frame" + std::to_string(frame++) + ".png").c_str(), WIDTH, HEIGHT, 4, ptr, WIDTH * channels);
-            delete[] ptr;
+            captureFrame();
         }
 
 
@@ -693,8 +480,8 @@ void imGuiSetup()
                 ImGui::SliderFloat("Roughness", &gBuffer.materialRoughness, 0.0f, 1.0f);
             if (!gBuffer.useMetalnessTexture)
                 ImGui::SliderFloat("Metalness", &gBuffer.materialMetallicity, 0.0f, 1.0f);
-            ImGui::SliderFloat3("F0", (float*)&materialF0, 0.0f, 1.0f);
-            ImGui::SliderFloat("Ambient Intensity", &ambientIntensity, 0.0f, 1.0f);
+            ImGui::SliderFloat3("F0", (float*)&lighting.materialF0, 0.0f, 1.0f);
+            ImGui::SliderFloat("Ambient Intensity", &lighting.ambientIntensity, 0.0f, 1.0f);
 
             ImGui::TreePop();
         }
@@ -703,9 +490,9 @@ void imGuiSetup()
         {
             if (ImGui::TreeNode("Mode"))
             {
-                ImGui::Checkbox("Point", &pointMode);
-                ImGui::Checkbox("Directional", &directionalMode);
-                ImGui::Checkbox("Image-Based Lighting", &iblMode);
+                ImGui::Checkbox("Point", &lighting.pointMode);
+                ImGui::Checkbox("Directional", &lighting.directionalMode);
+                ImGui::Checkbox("Image-Based Lighting", &lighting.iblMode);
 
                 ImGui::TreePop();
             }
@@ -714,35 +501,35 @@ void imGuiSetup()
             {
                 if (ImGui::TreeNode("Position"))
                 {
-                    ImGui::SliderFloat3("Point 1", (float*)&lightPointPosition1, -5.0f, 5.0f);
-                    ImGui::SliderFloat3("Point 2", (float*)&lightPointPosition2, -5.0f, 5.0f);
-                    ImGui::SliderFloat3("Point 3", (float*)&lightPointPosition3, -5.0f, 5.0f);
+                    ImGui::SliderFloat3("Point 1", (float*)&lighting.lightPointPosition1, -5.0f, 5.0f);
+                    ImGui::SliderFloat3("Point 2", (float*)&lighting.lightPointPosition2, -5.0f, 5.0f);
+                    ImGui::SliderFloat3("Point 3", (float*)&lighting.lightPointPosition3, -5.0f, 5.0f);
 
                     ImGui::TreePop();
                 }
 
                 if (ImGui::TreeNode("Color"))
                 {
-                    ImGui::ColorEdit3("Point 1", (float*)&lightPointColor1);
-                    ImGui::ColorEdit3("Point 2", (float*)&lightPointColor2);
-                    ImGui::ColorEdit3("Point 3", (float*)&lightPointColor3);
+                    ImGui::ColorEdit3("Point 1", (float*)&lighting.lightPointColor1);
+                    ImGui::ColorEdit3("Point 2", (float*)&lighting.lightPointColor2);
+                    ImGui::ColorEdit3("Point 3", (float*)&lighting.lightPointColor3);
 
                     ImGui::TreePop();
                 }
 
                 if (ImGui::TreeNode("Radius"))
                 {
-                    ImGui::SliderFloat("Point 1", &lightPointRadius1, 0.0f, 10.0f);
-                    ImGui::SliderFloat("Point 2", &lightPointRadius2, 0.0f, 10.0f);
-                    ImGui::SliderFloat("Point 3", &lightPointRadius3, 0.0f, 10.0f);
+                    ImGui::SliderFloat("Point 1", &lighting.lightPointRadius1, 0.0f, 10.0f);
+                    ImGui::SliderFloat("Point 2", &lighting.lightPointRadius2, 0.0f, 10.0f);
+                    ImGui::SliderFloat("Point 3", &lighting.lightPointRadius3, 0.0f, 10.0f);
 
                     ImGui::TreePop();
                 }
 
                 if (ImGui::TreeNode("Attenuation"))
                 {
-                    ImGui::RadioButton("Quadratic", &attenuationMode, 1);
-                    ImGui::RadioButton("UE4", &attenuationMode, 2);
+                    ImGui::RadioButton("Quadratic", &lighting.attenuationMode, 1);
+                    ImGui::RadioButton("UE4", &lighting.attenuationMode, 2);
 
                     ImGui::TreePop();
                 }
@@ -754,14 +541,14 @@ void imGuiSetup()
             {
                 if (ImGui::TreeNode("Direction"))
                 {
-                    ImGui::SliderFloat3("Direction 1", (float*)&lightDirectionalDirection1, -5.0f, 5.0f);
+                    ImGui::SliderFloat3("Direction 1", (float*)&lighting.lightDirectionalDirection1, -5.0f, 5.0f);
 
                     ImGui::TreePop();
                 }
 
                 if (ImGui::TreeNode("Color"))
                 {
-                    ImGui::ColorEdit3("Direct. 1", (float*)&lightDirectionalColor1);
+                    ImGui::ColorEdit3("Direct. 1", (float*)&lighting.lightDirectionalColor1);
 
                     ImGui::TreePop();
                 }
@@ -817,7 +604,7 @@ void imGuiSetup()
         {
             if (ImGui::TreeNode("SAO"))
             {
-                ImGui::Checkbox("Enable", &saoMode);
+                ImGui::Checkbox("Enable", &postprocess.saoMode);
 
                 ImGui::SliderInt("Samples", &ssao.saoSamples, 0, 64);
                 ImGui::SliderFloat("Radius", &ssao.saoRadius, 0.0f, 3.0f);
@@ -832,24 +619,24 @@ void imGuiSetup()
 
             if (ImGui::TreeNode("FXAA"))
             {
-                ImGui::Checkbox("Enable", &fxaaMode);
+                ImGui::Checkbox("Enable", &postprocess.fxaaMode);
 
                 ImGui::TreePop();
             }
 
             if (ImGui::TreeNode("Motion Blur"))
             {
-                ImGui::Checkbox("Enable", &motionBlurMode);
-                ImGui::SliderInt("Max Samples", &motionBlurMaxSamples, 1, 128);
+                ImGui::Checkbox("Enable", &postprocess.motionBlurMode);
+                ImGui::SliderInt("Max Samples", &postprocess.motionBlurMaxSamples, 1, 128);
 
                 ImGui::TreePop();
             }
 
             if (ImGui::TreeNode("Tonemapping"))
             {
-                ImGui::RadioButton("Reinhard", &tonemappingMode, 1);
-                ImGui::RadioButton("Filmic", &tonemappingMode, 2);
-                ImGui::RadioButton("Uncharted", &tonemappingMode, 3);
+                ImGui::RadioButton("Reinhard", &postprocess.tonemappingMode, 1);
+                ImGui::RadioButton("Filmic", &postprocess.tonemappingMode, 2);
+                ImGui::RadioButton("Uncharted", &postprocess.tonemappingMode, 3);
 
                 ImGui::TreePop();
             }
@@ -859,9 +646,9 @@ void imGuiSetup()
 
         if (ImGui::TreeNode("Camera"))
         {
-            ImGui::SliderFloat("Aperture", &cameraAperture, 1.0f, 32.0f);
-            ImGui::SliderFloat("Shutter Speed", &cameraShutterSpeed, 0.001f, 1.0f);
-            ImGui::SliderFloat("ISO", &cameraISO, 100.0f, 3200.0f);
+            ImGui::SliderFloat("Aperture", &postprocess.cameraAperture, 1.0f, 32.0f);
+            ImGui::SliderFloat("Shutter Speed", &postprocess.cameraShutterSpeed, 0.001f, 1.0f);
+            ImGui::SliderFloat("ISO", &postprocess.cameraISO, 100.0f, 3200.0f);
             ImGui::Checkbox("Orbitting Camera", &isOrbitCamera);
             if(isOrbitCamera)
             {
@@ -1068,7 +855,7 @@ void imGuiSetup()
                     gBuffer.setTexture(GBuffer::Metalness, "pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
                     gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/rustediron/rustediron_ao.png", "ironAO", true);
 
-                    materialF0 = glm::vec3(0.04f);
+                    lighting.materialF0 = glm::vec3(0.04f);
                 }
 
                 if (ImGui::Button("Gold"))
@@ -1079,7 +866,7 @@ void imGuiSetup()
                     gBuffer.setTexture(GBuffer::Metalness, "pbr/gold/gold_metalness.png", "goldMetalness", true);
                     gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/gold/gold_ao.png", "goldAO", true);
 
-                    materialF0 = glm::vec3(1.0f, 0.72f, 0.29f);
+                    lighting.materialF0 = glm::vec3(1.0f, 0.72f, 0.29f);
                 }
 
                 if (ImGui::Button("Ceramic"))
@@ -1090,7 +877,7 @@ void imGuiSetup()
                     gBuffer.setTexture(GBuffer::Metalness, "pbr/ceramic/ceramic_metalness.png", "goldMetalness", true);
                     gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/ceramic/ceramic_ao.png", "goldAO", true);
 
-                    materialF0 = glm::vec3(1.0f, 1.0f, 1.0f);
+                    lighting.materialF0 = glm::vec3(1.0f, 1.0f, 1.0f);
                 }
 
                 if (ImGui::Button("Woodfloor"))
@@ -1101,7 +888,7 @@ void imGuiSetup()
                     gBuffer.setTexture(GBuffer::Metalness, "pbr/woodfloor/woodfloor_metalness.png", "woodfloorMetalness", true);
                     gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/woodfloor/woodfloor_ao.png", "woodfloorAO", true);
 
-                    materialF0 = glm::vec3(0.04f);
+                    lighting.materialF0 = glm::vec3(0.04f);
                 }
 
                 ImGui::TreePop();
@@ -1141,23 +928,6 @@ void imGuiSetup()
     ImGui::End();
 }
 
-void postprocessSetup()
-{
-    // Post-processing Buffer
-    glGenFramebuffers(1, &postprocessFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, postprocessFBO);
-
-    glGenTextures(1, &postprocessBuffer);
-    glBindTexture(GL_TEXTURE_2D, postprocessBuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, postprocessBuffer, 0);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "Postprocess Framebuffer not complete !" << std::endl;
-}
-
 
 static void error_callback(int error, const char* description)
 {
@@ -1178,31 +948,31 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     }
 
     if (keys[GLFW_KEY_1])
-        gBufferView = 1;
+        lighting.gBufferView = 1;
 
     if (keys[GLFW_KEY_2])
-        gBufferView = 2;
+        lighting.gBufferView = 2;
 
     if (keys[GLFW_KEY_3])
-        gBufferView = 3;
+        lighting.gBufferView = 3;
 
     if (keys[GLFW_KEY_4])
-        gBufferView = 4;
+        lighting.gBufferView = 4;
 
     if (keys[GLFW_KEY_5])
-        gBufferView = 5;
+        lighting.gBufferView = 5;
 
     if (keys[GLFW_KEY_6])
-        gBufferView = 6;
+        lighting.gBufferView = 6;
 
     if (keys[GLFW_KEY_7])
-        gBufferView = 7;
+        lighting.gBufferView = 7;
 
     if (keys[GLFW_KEY_8])
-        gBufferView = 8;
+        lighting.gBufferView = 8;
 
     if (keys[GLFW_KEY_9])
-        gBufferView = 9;
+        lighting.gBufferView = 9;
 
     if (key >= 0 && key < 1024)
     {
@@ -1251,4 +1021,31 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 float random(float min, float max)
 {
     return ((static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX)) * (max - min)) + min;
+}
+
+void captureFrame()
+{
+    const auto channels = 4;
+    unsigned char* ptr = new unsigned char[WIDTH * HEIGHT * channels];
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, WIDTH, HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, ptr);
+    // glReadPixels reads the given rectangle from bottom-left to top-right, so we must
+    // reverse it
+    for (int y = 0; y < HEIGHT / 2; y++)
+    {
+        const int swapY = HEIGHT - y - 1;
+        for (int x = 0; x < WIDTH; x++)
+        {
+            const int offset = channels * (x + y * WIDTH);
+            const int swapOffset = channels * (x + swapY * WIDTH);
+
+            // Swap R, G and B of the 2 pixels
+            std::swap(ptr[offset + 0], ptr[swapOffset + 0]);
+            std::swap(ptr[offset + 1], ptr[swapOffset + 1]);
+            std::swap(ptr[offset + 2], ptr[swapOffset + 2]);
+        }
+    }
+    std::cout << "writing frame" << frame << " to " << recording_path << std::endl;
+    stbi_write_png(std::string(recording_path + "frame" + std::to_string(frame++) + ".png").c_str(), WIDTH, HEIGHT, 4, ptr, WIDTH * channels);
+    delete[] ptr;
 }
