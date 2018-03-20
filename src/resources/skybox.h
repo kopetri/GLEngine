@@ -6,6 +6,7 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
+#include <memory>
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
@@ -13,16 +14,16 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "camera.h"
-#include "shader.h"
-#include "texture.h"
-#include "shape.h"
+
+class Shape;
+class Texture;
+class Shader;
 
 
 class Skybox
 {
     public:
         GLfloat cameraAperture, cameraShutterSpeed, cameraISO;
-        Texture texSkybox;
 
         Skybox();
         ~Skybox();
@@ -52,21 +53,22 @@ private:
     GLuint brdfLUTRBO;
 
     // renderer
-    Shape quadRender;
-    Shape envCubeRender;
+    std::shared_ptr<Shape> quadRender;
+    std::shared_ptr<Shape> envCubeRender;
 
     // shader
-    Shader latlongToCubeShader;
-    Shader irradianceIBLShader;
-    Shader prefilterIBLShader;
-    Shader integrateIBLShader;
+    std::shared_ptr<Shader> latlongToCubeShader;
+    std::shared_ptr<Shader> irradianceIBLShader;
+    std::shared_ptr<Shader> prefilterIBLShader;
+    std::shared_ptr<Shader> integrateIBLShader;
 
     // textures
-    Texture envMapCube;
-    Texture envMapHDR;
-    Texture envMapIrradiance;
-    Texture envMapPrefilter;
-    Texture envMapLUT;
+    std::shared_ptr<Texture> envMapCube;
+    std::shared_ptr<Texture> envMapHDR;
+    std::shared_ptr<Texture> envMapIrradiance;
+    std::shared_ptr<Texture> envMapPrefilter;
+    std::shared_ptr<Texture> envMapLUT;
+    std::shared_ptr<Texture> texSkybox;
 
     glm::mat4 envMapProjection;
     std::vector<glm::mat4> envMapView;

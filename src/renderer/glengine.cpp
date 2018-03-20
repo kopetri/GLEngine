@@ -11,6 +11,7 @@
 #include "skybox.h"
 #include "material.h"
 #include "gbuffer.h"
+#include "ssao.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -56,8 +57,6 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
 void cameraMove();
 void imGuiSetup();
-void gBufferSetup();
-void saoSetup();
 void postprocessSetup();
 float random(float min, float max);
 
@@ -69,16 +68,13 @@ GLuint WIDTH = 512;
 GLuint HEIGHT = 512;
 
 GLuint screenQuadVAO, screenQuadVBO;
-GLuint saoFBO, saoBlurFBO, saoBuffer, saoBlurBuffer;
 GLuint postprocessFBO, postprocessBuffer;
 
 GLint gBufferView = 1;
 GLint tonemappingMode = 1;
 GLint lightDebugMode = 3;
 GLint attenuationMode = 2;
-GLint saoSamples = 12;
-GLint saoTurns = 7;
-GLint saoBlurSize = 4;
+
 GLint motionBlurMaxSamples = 32;
 
 GLfloat lastX = WIDTH / 2;
@@ -94,10 +90,7 @@ GLfloat deltaGUITime = 0.0f;
 
 
 GLfloat ambientIntensity = 0.005f;
-GLfloat saoRadius = 0.3f;
-GLfloat saoBias = 0.001f;
-GLfloat saoScale = 0.7f;
-GLfloat saoContrast = 0.8f;
+
 GLfloat lightPointRadius1 = 3.0f;
 GLfloat lightPointRadius2 = 3.0f;
 GLfloat lightPointRadius3 = 3.0f;
@@ -209,20 +202,16 @@ Camera camera(static_cast<GLfloat>(WIDTH), static_cast<GLfloat>(HEIGHT), 0.1f, 1
 
 Skybox skybox;
 GBuffer gBuffer(WIDTH, HEIGHT);
+SSAO ssao(WIDTH, HEIGHT);
 
 Shader simpleShader;
 Shader lightingBRDFShader;
 
-
+Shape quadRender;
 
 Shader firstpassPPShader;
 Shader saoShader;
 Shader saoBlurShader;
-
-
-
-
-
 
 Material pbrMat;
 
@@ -232,9 +221,6 @@ Light lightPoint1;
 Light lightPoint2;
 Light lightPoint3;
 Light lightDirectional1;
-
-Shape quadRender;
-Shape envCubeRender;
 
 int main(int argc, char* argv[])
 {
@@ -291,8 +277,7 @@ int main(int argc, char* argv[])
     
 
     firstpassPPShader.setShader("postprocess/postprocess.vert", "postprocess/firstpass.frag");
-    saoShader.setShader("postprocess/sao.vert", "postprocess/sao.frag");
-    saoBlurShader.setShader("postprocess/sao.vert", "postprocess/saoBlur.frag");
+    
 
 
     //-----------
@@ -331,17 +316,7 @@ int main(int argc, char* argv[])
         }
     }
 
-    //---------------
-    // G-Buffer setup
-    //---------------
-    gBuffer.setup();
-    gBuffer.loadModel(model_pool_paths[0].generic_string(), glm::vec3(2.0));
-    //---------------
-    // Shape(s)
-    //---------------
-    envCubeRender.setShape("cube", glm::vec3(0.0f));
     quadRender.setShape("quad", glm::vec3(0.0f));
-
 
     //----------------
     // Light source(s)
@@ -372,19 +347,22 @@ int main(int argc, char* argv[])
     glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "envMapPrefilter"), 7);
     glUniform1i(glGetUniformLocation(lightingBRDFShader.Program, "envMapLUT"), 8);
 
-    saoShader.useShader();
-    glUniform1i(glGetUniformLocation(saoShader.Program, "gPosition"), 0);
-    glUniform1i(glGetUniformLocation(saoShader.Program, "gNormal"), 1);
+    
 
     firstpassPPShader.useShader();
     glUniform1i(glGetUniformLocation(firstpassPPShader.Program, "sao"), 1);
     glUniform1i(glGetUniformLocation(firstpassPPShader.Program, "gEffects"), 2);
 
+    //---------------
+    // G-Buffer setup
+    //---------------
+    gBuffer.setup();
 
     //------------
     // SAO setup
     //------------
-    saoSetup();
+    ssao.setup();
+    ssao.setRender(quadRender);
 
 
     //---------------------
@@ -422,6 +400,7 @@ int main(int argc, char* argv[])
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
+    gBuffer.loadModel(model_pool_paths[0].generic_string(), glm::vec3(2.0));
 
     while (!glfwWindowShouldClose(window))
     {
@@ -449,46 +428,8 @@ int main(int argc, char* argv[])
         // sao rendering
         //---------------
         glQueryCounter(queryIDSAO[0], GL_TIMESTAMP);
-        glBindFramebuffer(GL_FRAMEBUFFER, saoFBO);
-        glClear(GL_COLOR_BUFFER_BIT);
-
         if (saoMode)
-        {
-            // SAO noisy texture
-            saoShader.useShader();
-
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, gBuffer.gPosition);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, gBuffer.gNormal);
-
-            glUniform1i(glGetUniformLocation(saoShader.Program, "saoSamples"), saoSamples);
-            glUniform1f(glGetUniformLocation(saoShader.Program, "saoRadius"), saoRadius);
-            glUniform1i(glGetUniformLocation(saoShader.Program, "saoTurns"), saoTurns);
-            glUniform1f(glGetUniformLocation(saoShader.Program, "saoBias"), saoBias);
-            glUniform1f(glGetUniformLocation(saoShader.Program, "saoScale"), saoScale);
-            glUniform1f(glGetUniformLocation(saoShader.Program, "saoContrast"), saoContrast);
-            glUniform1i(glGetUniformLocation(saoShader.Program, "viewportWidth"), WIDTH);
-            glUniform1i(glGetUniformLocation(saoShader.Program, "viewportHeight"), HEIGHT);
-
-            quadRender.drawShape();
-
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-            // SAO blur pass
-            glBindFramebuffer(GL_FRAMEBUFFER, saoBlurFBO);
-            glClear(GL_COLOR_BUFFER_BIT);
-
-            saoBlurShader.useShader();
-
-            glUniform1i(glGetUniformLocation(saoBlurShader.Program, "saoBlurSize"), saoBlurSize);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, saoBuffer);
-
-            quadRender.drawShape();
-        }
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            ssao.draw(gBuffer);
         glQueryCounter(queryIDSAO[1], GL_TIMESTAMP);
 
 
@@ -510,7 +451,7 @@ int main(int argc, char* argv[])
         glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_2D, gBuffer.gEffects);
         glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);
+        glBindTexture(GL_TEXTURE_2D, ssao.saoBlurBuffer);
         glActiveTexture(GL_TEXTURE5);
         skybox.bindEnvMapHDRTexture();
         glActiveTexture(GL_TEXTURE6);
@@ -584,7 +525,7 @@ int main(int argc, char* argv[])
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, postprocessBuffer);
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);
+        glBindTexture(GL_TEXTURE_2D, ssao.saoBlurBuffer);
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, gBuffer.gEffects);
 
@@ -878,13 +819,13 @@ void imGuiSetup()
             {
                 ImGui::Checkbox("Enable", &saoMode);
 
-                ImGui::SliderInt("Samples", &saoSamples, 0, 64);
-                ImGui::SliderFloat("Radius", &saoRadius, 0.0f, 3.0f);
-                ImGui::SliderInt("Turns", &saoTurns, 0, 16);
-                ImGui::SliderFloat("Bias", &saoBias, 0.0f, 0.1f);
-                ImGui::SliderFloat("Scale", &saoScale, 0.0f, 3.0f);
-                ImGui::SliderFloat("Contrast", &saoContrast, 0.0f, 3.0f);
-                ImGui::SliderInt("Blur Size", &saoBlurSize, 0, 8);
+                ImGui::SliderInt("Samples", &ssao.saoSamples, 0, 64);
+                ImGui::SliderFloat("Radius", &ssao.saoRadius, 0.0f, 3.0f);
+                ImGui::SliderInt("Turns", &ssao.saoTurns, 0, 16);
+                ImGui::SliderFloat("Bias", &ssao.saoBias, 0.0f, 0.1f);
+                ImGui::SliderFloat("Scale", &ssao.saoScale, 0.0f, 3.0f);
+                ImGui::SliderFloat("Contrast", &ssao.saoContrast, 0.0f, 3.0f);
+                ImGui::SliderInt("Blur Size", &ssao.saoBlurSize, 0, 8);
 
                 ImGui::TreePop();
             }
@@ -1199,39 +1140,6 @@ void imGuiSetup()
 
     ImGui::End();
 }
-
-
-void saoSetup()
-{
-    // SAO Buffer
-    glGenFramebuffers(1, &saoFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, saoFBO);
-    glGenTextures(1, &saoBuffer);
-    glBindTexture(GL_TEXTURE_2D, saoBuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, saoBuffer, 0);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "SAO Framebuffer not complete !" << std::endl;
-
-    // SAO Blur Buffer
-    glGenFramebuffers(1, &saoBlurFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, saoBlurFBO);
-    glGenTextures(1, &saoBlurBuffer);
-    glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, saoBlurBuffer, 0);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "SAO Blur Framebuffer not complete !" << std::endl;
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
 
 void postprocessSetup()
 {

@@ -11,10 +11,25 @@
 
 #include "stb_image.h"
 #include "skybox.h"
+#include "shader.h"
+#include "texture.h"
+#include "shape.h"
 
 
 Skybox::Skybox() :
     envMapProjection(glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f))
+    , quadRender(std::make_shared<Shape>())
+    , envCubeRender(std::make_shared<Shape>())
+    , latlongToCubeShader(std::make_shared<Shader>())
+    , irradianceIBLShader(std::make_shared<Shader>())
+    , prefilterIBLShader(std::make_shared<Shader>())
+    , integrateIBLShader(std::make_shared<Shader>())
+    , envMapCube(std::make_shared<Texture>())
+    , envMapHDR(std::make_shared<Texture>())
+    , envMapIrradiance(std::make_shared<Texture>())
+    , envMapPrefilter(std::make_shared<Texture>())
+    , envMapLUT(std::make_shared<Texture>())
+    , texSkybox(std::make_shared<Texture>())
 {
     envMapView =
     {
@@ -36,35 +51,35 @@ Skybox::~Skybox()
 void Skybox::setup()
 {
     // init renderer
-    envCubeRender.setShape("cube", glm::vec3(0.0f));
-    quadRender.setShape("quad", glm::vec3(0.0f));
+    envCubeRender->setShape("cube", glm::vec3(0.0f));
+    quadRender->setShape("quad", glm::vec3(0.0f));
     // init shader
-    latlongToCubeShader.setShader("latlongToCube.vert", "latlongToCube.frag");
-    irradianceIBLShader.setShader("lighting/irradianceIBL.vert", "lighting/irradianceIBL.frag");
-    prefilterIBLShader.setShader("lighting/prefilterIBL.vert", "lighting/prefilterIBL.frag");
-    integrateIBLShader.setShader("lighting/integrateIBL.vert", "lighting/integrateIBL.frag");
+    latlongToCubeShader->setShader("latlongToCube.vert", "latlongToCube.frag");
+    irradianceIBLShader->setShader("lighting/irradianceIBL.vert", "lighting/irradianceIBL.frag");
+    prefilterIBLShader->setShader("lighting/prefilterIBL.vert", "lighting/prefilterIBL.frag");
+    integrateIBLShader->setShader("lighting/integrateIBL.vert", "lighting/integrateIBL.frag");
     // init texture
-    envMapHDR.setTextureHDR("hdr/appart.hdr", "appartHDR", true);
-    envMapCube.setTextureCube(512, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR);
-    envMapIrradiance.setTextureCube(32, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR);
-    envMapPrefilter.setTextureCube(128, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR);
-    envMapPrefilter.computeTexMipmap();
-    envMapLUT.setTextureHDR(512, 512, GL_RG, GL_RG16F, GL_FLOAT, GL_LINEAR);
+    envMapHDR->setTextureHDR("hdr/appart.hdr", "appartHDR", true);
+    envMapCube->setTextureCube(512, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR);
+    envMapIrradiance->setTextureCube(32, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR);
+    envMapPrefilter->setTextureCube(128, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR);
+    envMapPrefilter->computeTexMipmap();
+    envMapLUT->setTextureHDR(512, 512, GL_RG, GL_RG16F, GL_FLOAT, GL_LINEAR);
 
-    latlongToCubeShader.useShader();
-    glUniform1i(glGetUniformLocation(latlongToCubeShader.Program, "envMap"), 0);
+    latlongToCubeShader->useShader();
+    glUniform1i(glGetUniformLocation(latlongToCubeShader->Program, "envMap"), 0);
 
-    irradianceIBLShader.useShader();
-    glUniform1i(glGetUniformLocation(irradianceIBLShader.Program, "envMap"), 0);
+    irradianceIBLShader->useShader();
+    glUniform1i(glGetUniformLocation(irradianceIBLShader->Program, "envMap"), 0);
 
-    prefilterIBLShader.useShader();
-    glUniform1i(glGetUniformLocation(prefilterIBLShader.Program, "envMap"), 0);
+    prefilterIBLShader->useShader();
+    glUniform1i(glGetUniformLocation(prefilterIBLShader->Program, "envMap"), 0);
 }
 
 
 void Skybox::setSkyboxTexture(const char* texPath)
 {
-    this->texSkybox.setTextureHDR(texPath, "cubemapHDR", true);
+    this->texSkybox->setTextureHDR(texPath, "cubemapHDR", true);
 }
 
 
@@ -72,7 +87,7 @@ void Skybox::renderToShader(Shader& shaderSkybox, glm::mat4& projection, glm::ma
 {
     shaderSkybox.useShader();
     glActiveTexture(GL_TEXTURE0);
-    this->texSkybox.useTexture();
+    this->texSkybox->useTexture();
 
     glUniform1i(glGetUniformLocation(shaderSkybox.Program, "envMap"), 0);
     glUniformMatrix4fv(glGetUniformLocation(shaderSkybox.Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
@@ -92,7 +107,7 @@ void Skybox::setExposure(GLfloat aperture, GLfloat shutterSpeed, GLfloat iso)
 
 void Skybox::setTextureHDR(const char * texPath, std::string texName, bool texFlip)
 {
-    envMapHDR.setTextureHDR(texPath, texName, texFlip);
+    envMapHDR->setTextureHDR(texPath, texName, texFlip);
 }
 
 
@@ -103,28 +118,28 @@ void Skybox::iblSetup(GLuint WIDTH, GLuint HEIGHT)
     glGenRenderbuffers(1, &envToCubeRBO);
     glBindFramebuffer(GL_FRAMEBUFFER, envToCubeFBO);
     glBindRenderbuffer(GL_RENDERBUFFER, envToCubeRBO);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, envMapCube.getTexWidth(), envMapCube.getTexHeight());
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, envMapCube->getTexWidth(), envMapCube->getTexHeight());
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, envToCubeRBO);
 
-    latlongToCubeShader.useShader();
+    latlongToCubeShader->useShader();
 
-    glUniformMatrix4fv(glGetUniformLocation(latlongToCubeShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(envMapProjection));
+    glUniformMatrix4fv(glGetUniformLocation(latlongToCubeShader->Program, "projection"), 1, GL_FALSE, glm::value_ptr(envMapProjection));
     glActiveTexture(GL_TEXTURE0);
-    envMapHDR.useTexture();
+    envMapHDR->useTexture();
 
-    glViewport(0, 0, envMapCube.getTexWidth(), envMapCube.getTexHeight());
+    glViewport(0, 0, envMapCube->getTexWidth(), envMapCube->getTexHeight());
     glBindFramebuffer(GL_FRAMEBUFFER, envToCubeFBO);
 
     for (unsigned int i = 0; i < 6; ++i)
     {
-        glUniformMatrix4fv(glGetUniformLocation(latlongToCubeShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(envMapView[i]));
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, envMapCube.getTexID(), 0);
+        glUniformMatrix4fv(glGetUniformLocation(latlongToCubeShader->Program, "view"), 1, GL_FALSE, glm::value_ptr(envMapView[i]));
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, envMapCube->getTexID(), 0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        envCubeRender.drawShape();
+        envCubeRender->drawShape();
     }
 
-    envMapCube.computeTexMipmap();
+    envMapCube->computeTexMipmap();
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -133,33 +148,33 @@ void Skybox::iblSetup(GLuint WIDTH, GLuint HEIGHT)
     glGenRenderbuffers(1, &irradianceRBO);
     glBindFramebuffer(GL_FRAMEBUFFER, irradianceFBO);
     glBindRenderbuffer(GL_RENDERBUFFER, irradianceRBO);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, envMapIrradiance.getTexWidth(), envMapIrradiance.getTexHeight());
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, envMapIrradiance->getTexWidth(), envMapIrradiance->getTexHeight());
 
-    irradianceIBLShader.useShader();
+    irradianceIBLShader->useShader();
 
-    glUniformMatrix4fv(glGetUniformLocation(irradianceIBLShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(envMapProjection));
+    glUniformMatrix4fv(glGetUniformLocation(irradianceIBLShader->Program, "projection"), 1, GL_FALSE, glm::value_ptr(envMapProjection));
     glActiveTexture(GL_TEXTURE0);
-    envMapCube.useTexture();
+    envMapCube->useTexture();
 
-    glViewport(0, 0, envMapIrradiance.getTexWidth(), envMapIrradiance.getTexHeight());
+    glViewport(0, 0, envMapIrradiance->getTexWidth(), envMapIrradiance->getTexHeight());
     glBindFramebuffer(GL_FRAMEBUFFER, irradianceFBO);
 
     for (unsigned int i = 0; i < 6; ++i)
     {
-        glUniformMatrix4fv(glGetUniformLocation(irradianceIBLShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(envMapView[i]));
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, envMapIrradiance.getTexID(), 0);
+        glUniformMatrix4fv(glGetUniformLocation(irradianceIBLShader->Program, "view"), 1, GL_FALSE, glm::value_ptr(envMapView[i]));
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, envMapIrradiance->getTexID(), 0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        envCubeRender.drawShape();
+        envCubeRender->drawShape();
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // Prefilter cubemap
-    prefilterIBLShader.useShader();
+    prefilterIBLShader->useShader();
 
-    glUniformMatrix4fv(glGetUniformLocation(prefilterIBLShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(envMapProjection));
-    envMapCube.useTexture();
+    glUniformMatrix4fv(glGetUniformLocation(prefilterIBLShader->Program, "projection"), 1, GL_FALSE, glm::value_ptr(envMapProjection));
+    envMapCube->useTexture();
 
     glGenFramebuffers(1, &prefilterFBO);
     glGenRenderbuffers(1, &prefilterRBO);
@@ -169,8 +184,8 @@ void Skybox::iblSetup(GLuint WIDTH, GLuint HEIGHT)
 
     for (unsigned int mip = 0; mip < maxMipLevels; ++mip)
     {
-        unsigned int mipWidth = envMapPrefilter.getTexWidth() * std::pow(0.5, mip);
-        unsigned int mipHeight = envMapPrefilter.getTexHeight() * std::pow(0.5, mip);
+        unsigned int mipWidth = envMapPrefilter->getTexWidth() * std::pow(0.5, mip);
+        unsigned int mipHeight = envMapPrefilter->getTexHeight() * std::pow(0.5, mip);
 
         glBindRenderbuffer(GL_RENDERBUFFER, prefilterRBO);
         glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, mipWidth, mipHeight);
@@ -179,18 +194,18 @@ void Skybox::iblSetup(GLuint WIDTH, GLuint HEIGHT)
 
         float roughness = (float)mip / (float)(maxMipLevels - 1);
 
-        glUniform1f(glGetUniformLocation(prefilterIBLShader.Program, "roughness"), roughness);
-        glUniform1f(glGetUniformLocation(prefilterIBLShader.Program, "cubeResolutionWidth"), envMapPrefilter.getTexWidth());
-        glUniform1f(glGetUniformLocation(prefilterIBLShader.Program, "cubeResolutionHeight"), envMapPrefilter.getTexHeight());
+        glUniform1f(glGetUniformLocation(prefilterIBLShader->Program, "roughness"), roughness);
+        glUniform1f(glGetUniformLocation(prefilterIBLShader->Program, "cubeResolutionWidth"), envMapPrefilter->getTexWidth());
+        glUniform1f(glGetUniformLocation(prefilterIBLShader->Program, "cubeResolutionHeight"), envMapPrefilter->getTexHeight());
 
         for (unsigned int i = 0; i < 6; ++i)
         {
-            glUniformMatrix4fv(glGetUniformLocation(prefilterIBLShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(envMapView[i]));
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, envMapPrefilter.getTexID(), mip);
+            glUniformMatrix4fv(glGetUniformLocation(prefilterIBLShader->Program, "view"), 1, GL_FALSE, glm::value_ptr(envMapView[i]));
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, envMapPrefilter->getTexID(), mip);
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            envCubeRender.drawShape();
+            envCubeRender->drawShape();
         }
     }
 
@@ -201,14 +216,14 @@ void Skybox::iblSetup(GLuint WIDTH, GLuint HEIGHT)
     glGenRenderbuffers(1, &brdfLUTRBO);
     glBindFramebuffer(GL_FRAMEBUFFER, brdfLUTFBO);
     glBindRenderbuffer(GL_RENDERBUFFER, brdfLUTRBO);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, envMapLUT.getTexWidth(), envMapLUT.getTexHeight());
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, envMapLUT.getTexID(), 0);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, envMapLUT->getTexWidth(), envMapLUT->getTexHeight());
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, envMapLUT->getTexID(), 0);
 
-    glViewport(0, 0, envMapLUT.getTexWidth(), envMapLUT.getTexHeight());
-    integrateIBLShader.useShader();
+    glViewport(0, 0, envMapLUT->getTexWidth(), envMapLUT->getTexHeight());
+    integrateIBLShader->useShader();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    quadRender.drawShape();
+    quadRender->drawShape();
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -217,20 +232,20 @@ void Skybox::iblSetup(GLuint WIDTH, GLuint HEIGHT)
 
 void Skybox::bindEnvMapHDRTexture()
 {
-    envMapHDR.useTexture();
+    envMapHDR->useTexture();
 }
 
 void Skybox::bindEnvMapIrradianceTexture()
 {
-    envMapIrradiance.useTexture();
+    envMapIrradiance->useTexture();
 }
 
 void Skybox::bindEnvMapPrefilterTexture()
 {
-    envMapPrefilter.useTexture();
+    envMapPrefilter->useTexture();
 }
 
 void Skybox::bindEnvMapLUTTexture()
 {
-    envMapLUT.useTexture();
+    envMapLUT->useTexture();
 }
