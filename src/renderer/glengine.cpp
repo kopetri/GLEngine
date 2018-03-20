@@ -81,7 +81,7 @@ GLfloat deltaGUITime = 0.0f;
 
 GLfloat theta = 0.0f;
 GLfloat rho = 0.0f;
-GLfloat radius = 1.0f;
+GLfloat radius = 2.5;
 
 bool cameraMode;
 
@@ -149,8 +149,8 @@ std::vector<bool> invertNormal = {
     false
 };
 
-int fullRotationTicks = 72;
-int halfRotationTicks = 12;
+int fullRotationTicks = 100;
+int halfRotationTicks = 25;
 int index_fullRotationTicks = fullRotationTicks + 1;
 int index_halfRotationTicks = halfRotationTicks + 1;
 int frame = 0;
@@ -660,26 +660,22 @@ void imGuiSetup()
                         // set first model
                         current_pool_model = model_pool_paths.begin();
                         gBuffer.loadModel(current_pool_model->generic_string(), glm::vec3(2.0f));
-
                         auto d = std::find(model_pool_paths.begin(), model_pool_paths.end(), static_cast<fs::path>(*current_pool_model)) - model_pool_paths.begin();
                         if (d < invertNormal.size()) {
                             gBuffer.negativeNormals = invertNormal[d];
                         }
-
                         //set proper output dir
                         auto output = current_pool_model->generic_string();
-                        const auto outputDir = fs::path(output.substr(0, output.size() - 4));
+                        const auto outputDir = fs::path(std::string(MODEL_PATH) + output.substr(0, output.size() - 4));
                         if(!fs::is_directory(outputDir))
                         {
                             fs::create_directory(outputDir);
                         }
                         recording_path = outputDir.generic_string() + "/";
-
                         // set background
                         useEnvmapIndex = 0;
                         skybox.setTextureHDR("hdr/appart.hdr", "appartHDR", true);
                         skybox.iblSetup(WIDTH, HEIGHT);
-                        
                         // reset indices
                         index_fullRotationTicks = 0;
                         index_halfRotationTicks = 0;
