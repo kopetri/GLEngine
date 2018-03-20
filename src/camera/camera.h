@@ -37,10 +37,15 @@ class Camera
         GLfloat cameraSpeed;
         GLfloat cameraSensitivity;
         GLfloat cameraFOV;
+        GLfloat cameraWidth;
+        GLfloat cameraHeight;
+        GLfloat cameraNear;
+        GLfloat cameraFar;
 
-        Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), GLfloat yaw = defaultCameraYaw, GLfloat pitch = defaultCameraPitch);
+        Camera(GLfloat width, GLfloat height, GLfloat zNear, GLfloat zFar, glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), GLfloat yaw = defaultCameraYaw, GLfloat pitch = defaultCameraPitch);
         ~Camera();
         glm::mat4 GetViewMatrix();
+        glm::mat4 GetProjectionMatrix();
         void keyboardCall(Camera_Movement direction, GLfloat deltaTime);
         void mouseCall(GLfloat xoffset, GLfloat yoffset, GLboolean constrainPitch = true);
         void scrollCall(GLfloat yoffset);

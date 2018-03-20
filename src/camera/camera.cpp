@@ -9,7 +9,7 @@
 #include "camera.h"
 
 
-Camera::Camera(glm::vec3 position, glm::vec3 up, GLfloat yaw, GLfloat pitch) :  cameraFront(glm::vec3(0.0f, 0.0f, -1.0f)),
+Camera::Camera(GLfloat width, GLfloat height, GLfloat zNear, GLfloat zFar, glm::vec3 position, glm::vec3 up, GLfloat yaw, GLfloat pitch) :  cameraFront(glm::vec3(0.0f, 0.0f, -1.0f)),
                                                                                 cameraSpeed(defaultCameraSpeed),
                                                                                 cameraSensitivity(defaultCameraSensitivity),
                                                                                 cameraFOV(defaultCameraFOV)
@@ -18,6 +18,10 @@ Camera::Camera(glm::vec3 position, glm::vec3 up, GLfloat yaw, GLfloat pitch) :  
     this->worldUp = up;
     this->cameraYaw = yaw;
     this->cameraPitch = pitch;
+    this->cameraWidth = width;
+    this->cameraHeight = height;
+    this->cameraNear = zNear;
+    this->cameraFar = zFar;
     this->updateCameraVectors();
 }
 
@@ -27,6 +31,10 @@ Camera::~Camera()
 
 }
 
+glm::mat4 Camera::GetProjectionMatrix()
+{
+    return glm::perspective(this->cameraFOV, this->cameraWidth / this->cameraHeight, this->cameraNear, this->cameraFar);
+}
 
 glm::mat4 Camera::GetViewMatrix()
 {

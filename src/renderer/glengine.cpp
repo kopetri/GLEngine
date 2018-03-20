@@ -10,6 +10,7 @@
 #include "light.h"
 #include "skybox.h"
 #include "material.h"
+#include "gbuffer.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -68,7 +69,6 @@ GLuint WIDTH = 512;
 GLuint HEIGHT = 512;
 
 GLuint screenQuadVAO, screenQuadVBO;
-GLuint gBuffer, zBuffer, gPosition, gNormal, gAlbedo, gEffects;
 GLuint saoFBO, saoBlurFBO, saoBuffer, saoBlurBuffer;
 GLuint postprocessFBO, postprocessBuffer;
 
@@ -91,8 +91,8 @@ GLfloat deltaSAOTime = 0.0f;
 GLfloat deltaPostprocessTime = 0.0f;
 GLfloat deltaForwardTime = 0.0f;
 GLfloat deltaGUITime = 0.0f;
-GLfloat materialRoughness = 0.01f;
-GLfloat materialMetallicity = 0.02f;
+
+
 GLfloat ambientIntensity = 0.005f;
 GLfloat saoRadius = 0.3f;
 GLfloat saoBias = 0.001f;
@@ -104,7 +104,7 @@ GLfloat lightPointRadius3 = 3.0f;
 GLfloat cameraAperture = 16.0f;
 GLfloat cameraShutterSpeed = 0.5f;
 GLfloat cameraISO = 1000.0f;
-GLfloat modelRotationSpeed = 0.0f;
+
 GLfloat theta = 0.0f;
 GLfloat rho = 0.0f;
 GLfloat radius = 1.0f;
@@ -119,12 +119,9 @@ bool motionBlurMode = false;
 bool screenMode = false;
 bool firstMouse = true;
 bool guiIsOpen = true;
-bool useRoughnessTexture = false;
-bool useAlbedoTexture = false;
-bool useMetalnessTexture = false;
-bool useNormalTexture = false;
+
 bool isOrbitCamera = false;
-bool negativeNormals = false;
+
 bool keys[1024];
 
 std::vector<bool> invertNormal = {
@@ -195,7 +192,7 @@ std::string recording_path = "./";
 std::vector<fs::path> model_pool_paths;
 std::vector<fs::path>::iterator current_pool_model;
 
-glm::vec3 albedoColor = glm::vec3(1.0f);
+
 glm::vec3 materialF0 = glm::vec3(0.04f);  // UE4 dielectric
 glm::vec3 lightPointPosition1 = glm::vec3(1.5f, 0.75f, 1.0f);
 glm::vec3 lightPointPosition2 = glm::vec3(-1.5f, 1.0f, 1.0f);
@@ -205,19 +202,13 @@ glm::vec3 lightPointColor2 = glm::vec3(1.0f);
 glm::vec3 lightPointColor3 = glm::vec3(1.0f);
 glm::vec3 lightDirectionalDirection1 = glm::vec3(-0.2f, -1.0f, -0.3f);
 glm::vec3 lightDirectionalColor1 = glm::vec3(1.0f);
-glm::vec3 modelPosition = glm::vec3(0.0f);
-glm::vec3 modelRotationAxis = glm::vec3(0.0f, 1.0f, 0.0f);
-glm::vec3 modelScale = glm::vec3(0.1f);
-
-glm::mat4 projViewModel;
-glm::mat4 prevProjViewModel = projViewModel;
 
 
-Camera camera(glm::vec3(0.0f, 0.0f, 4.0f));
+
+Camera camera(static_cast<GLfloat>(WIDTH), static_cast<GLfloat>(HEIGHT), 0.1f, 100.0f, glm::vec3(0.0f, 0.0f, 4.0f));
 
 Skybox skybox;
-
-Shader gBufferShader;
+GBuffer gBuffer(WIDTH, HEIGHT);
 
 Shader simpleShader;
 Shader lightingBRDFShader;
@@ -228,12 +219,6 @@ Shader firstpassPPShader;
 Shader saoShader;
 Shader saoBlurShader;
 
-Texture objectAlbedo;
-Texture objectNormal;
-Texture objectRoughness;
-Texture objectMetalness;
-Texture objectAO;
-
 
 
 
@@ -241,7 +226,7 @@ Texture objectAO;
 
 Material pbrMat;
 
-Model objectModel;
+
 
 Light lightPoint1;
 Light lightPoint2;
@@ -296,7 +281,7 @@ int main(int argc, char* argv[])
     //----------
     // Shader(s)
     //----------
-    gBufferShader.setShader("resources/shaders/gBuffer.vert", "resources/shaders/gBuffer.frag");
+    
     
 
     simpleShader.setShader("resources/shaders/lighting/simple.vert", "resources/shaders/lighting/simple.frag");
@@ -313,11 +298,7 @@ int main(int argc, char* argv[])
     //-----------
     // Textures(s)
     //-----------
-    objectAlbedo.setTexture("resources/textures/pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true);
-    objectNormal.setTexture("resources/textures/pbr/rustediron/rustediron_normal.png", "ironNormal", true);
-    objectRoughness.setTexture("resources/textures/pbr/rustediron/rustediron_roughness.png", "ironRoughness", true);
-    objectMetalness.setTexture("resources/textures/pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
-    objectAO.setTexture("resources/textures/pbr/rustediron/rustediron_ao.png", "ironAO", true);
+    
 
 
 
@@ -348,9 +329,8 @@ int main(int argc, char* argv[])
             model_pool_paths.push_back(p);
         }
     }
-    //objectModel.loadModel("resources/models/shaderball/shaderball.obj");
-    objectModel.loadModel(model_pool_paths[0].generic_string());
-    modelScale = glm::vec3(2.0);
+    
+    gBuffer.loadModel(model_pool_paths[0].generic_string(), glm::vec3(2.0));
     //---------------
     // Shape(s)
     //---------------
@@ -465,66 +445,8 @@ int main(int argc, char* argv[])
         // Geometry Pass rendering
         //------------------------
         glQueryCounter(queryIDGeometry[0], GL_TIMESTAMP);
-        glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // Camera setting
-        glm::mat4 projection = glm::perspective(camera.cameraFOV, (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
-        glm::mat4 view = camera.GetViewMatrix();
-        glm::mat4 model;
-
-        // Model(s) rendering
-        gBufferShader.useShader();
-
-        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-
-        GLfloat rotationAngle = glfwGetTime() / 5.0f * modelRotationSpeed;
-        model = glm::mat4();
-        model = glm::translate(model, modelPosition);
-        model = glm::rotate(model, rotationAngle, modelRotationAxis);
-        model = glm::scale(model, modelScale);
-
-        projViewModel = projection * view * model;
-
-        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "projViewModel"), 1, GL_FALSE, glm::value_ptr(projViewModel));
-        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "prevProjViewModel"), 1, GL_FALSE, glm::value_ptr(prevProjViewModel));
-        glUniformMatrix4fv(glGetUniformLocation(gBufferShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
-        glUniform3f(glGetUniformLocation(gBufferShader.Program, "albedoColor"), albedoColor.r, albedoColor.g, albedoColor.b);
-        glUniform1f(glGetUniformLocation(gBufferShader.Program, "materialRoughness"), materialRoughness);
-        glUniform1f(glGetUniformLocation(gBufferShader.Program, "materialMetallicity"), materialMetallicity);
-        glUniform1i(glGetUniformLocation(gBufferShader.Program, "useRoughnessTexture"), useRoughnessTexture);
-        glUniform1i(glGetUniformLocation(gBufferShader.Program, "useAlbedoTexture"), useAlbedoTexture);
-        glUniform1i(glGetUniformLocation(gBufferShader.Program, "useMetalnessTexture"), useMetalnessTexture);
-        glUniform1i(glGetUniformLocation(gBufferShader.Program, "useNormalTexture"), useNormalTexture);
-        glUniform1i(glGetUniformLocation(gBufferShader.Program, "negativeNormals"), negativeNormals);
-
-
-        // Material
-        // pbrMat.renderToShader();
-
-        glActiveTexture(GL_TEXTURE0);
-        objectAlbedo.useTexture();
-        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texAlbedo"), 0);
-        glActiveTexture(GL_TEXTURE1);
-        objectNormal.useTexture();
-        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texNormal"), 1);
-        glActiveTexture(GL_TEXTURE2);
-        objectRoughness.useTexture();
-        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texRoughness"), 2);
-        glActiveTexture(GL_TEXTURE3);
-        objectMetalness.useTexture();
-        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texMetalness"), 3);
-        glActiveTexture(GL_TEXTURE4);
-        objectAO.useTexture();
-        glUniform1i(glGetUniformLocation(gBufferShader.Program, "texAO"), 4);
-
-        objectModel.Draw();
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        gBuffer.draw(camera);
         glQueryCounter(queryIDGeometry[1], GL_TIMESTAMP);
-
-        prevProjViewModel = projViewModel;
 
         //---------------
         // sao rendering
@@ -539,9 +461,9 @@ int main(int argc, char* argv[])
             saoShader.useShader();
 
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, gPosition);
+            glBindTexture(GL_TEXTURE_2D, gBuffer.gPosition);
             glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, gNormal);
+            glBindTexture(GL_TEXTURE_2D, gBuffer.gNormal);
 
             glUniform1i(glGetUniformLocation(saoShader.Program, "saoSamples"), saoSamples);
             glUniform1f(glGetUniformLocation(saoShader.Program, "saoRadius"), saoRadius);
@@ -583,13 +505,13 @@ int main(int argc, char* argv[])
         lightingBRDFShader.useShader();
 
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, gPosition);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.gPosition);
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, gAlbedo);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.gAlbedo);
         glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, gNormal);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.gNormal);
         glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, gEffects);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.gEffects);
         glActiveTexture(GL_TEXTURE4);
         glBindTexture(GL_TEXTURE_2D, saoBlurBuffer);
         glActiveTexture(GL_TEXTURE5);
@@ -1294,61 +1216,6 @@ void imGuiSetup()
     }
 
     ImGui::End();
-}
-
-
-void gBufferSetup()
-{
-    glGenFramebuffers(1, &gBuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
-
-    // Position
-    glGenTextures(1, &gPosition);
-    glBindTexture(GL_TEXTURE_2D, gPosition);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
-
-    // Albedo + Roughness
-    glGenTextures(1, &gAlbedo);
-    glBindTexture(GL_TEXTURE_2D, gAlbedo);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gAlbedo, 0);
-
-    // Normals + Metalness
-    glGenTextures(1, &gNormal);
-    glBindTexture(GL_TEXTURE_2D, gNormal);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gNormal, 0);
-
-    // Effects (AO + Velocity)
-    glGenTextures(1, &gEffects);
-    glBindTexture(GL_TEXTURE_2D, gEffects);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, WIDTH, HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, gEffects, 0);
-
-    // Define the COLOR_ATTACHMENTS for the G-Buffer
-    GLuint attachments[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
-    glDrawBuffers(4, attachments);
-
-    // Z-Buffer
-    glGenRenderbuffers(1, &zBuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, zBuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, WIDTH, HEIGHT);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, zBuffer);
-
-    // Check if the framebuffer is complete before continuing
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "Framebuffer not complete !" << std::endl;
 }
 
 

@@ -25,12 +25,13 @@ include_directories(src/camera/
                     src/mesh/
                     src/renderer/
                     src/resources/
+                    src/deferred-shading/
                     api/assimp/include/
                     api/glad/include/
                     api/glfw/include/
                     api/glm/
                     api/stb/
-		    api/imgui/)
+                    api/imgui/)
 
 file(GLOB API_SOURCES api/glad/src/glad.c api/imgui/*.cpp)
 
@@ -38,13 +39,15 @@ file(GLOB PROJECT_HEADERS src/camera/*.h
                           src/lighting/*.h
                           src/mesh/*.h
                           src/renderer/*.h
-                          src/resources/*.h)
+                          src/resources/*.h
+                          src/deferred-shading/*.h)
 
 file(GLOB PROJECT_SOURCES src/camera/*.cpp
                           src/lighting/*.cpp
                           src/mesh/*.cpp
                           src/renderer/*.cpp
-                          src/resources/*.cpp)
+                          src/resources/*.cpp
+                          src/deferred-shading/*.cpp)
 
 file(GLOB PROJECT_SHADERS resources/shaders/*.glsl
                           resources/shaders/*.frag
