@@ -32,6 +32,7 @@ class Skybox
         void renderToShader(Shader& shaderSkybox, glm::mat4& projection, glm::mat4& view);
         void setExposure(GLfloat aperture, GLfloat shutterSpeed, GLfloat iso);
         void setTextureHDR(const char* texPath, std::string texName, bool texFlip);
+        void setTexture(const char * texPath, std::string texName, bool texFlip);
         void iblSetup(GLuint WIDTH, GLuint HEIGHT);
 
         void bindEnvMapHDRTexture();

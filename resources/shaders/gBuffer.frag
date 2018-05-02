@@ -41,6 +41,8 @@ void main()
     vec2 fragPosB = (fragPrevPosition.xy / fragPrevPosition.w) * 0.5f + 0.5f;
 
     gPosition = vec4(viewPos, LinearizeDepth(gl_FragCoord.z));
+    
+
 	if(useAlbedoTexture)
 		gAlbedo.rgb = vec3(texture(texAlbedo, TexCoords));
 	else

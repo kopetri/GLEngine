@@ -6,6 +6,7 @@
 #include <iostream>
 #include <map>
 #include <vector>
+#include <memory>
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
@@ -17,6 +18,7 @@
 
 #include "mesh.h"
 
+class Shader;
 
 class Model 
 {
@@ -25,11 +27,16 @@ class Model
         ~Model();
         void loadModel(std::string path);
         void Draw();
-        glm::vec3 centroid();
+
+        glm::vec3 getSize() { return size; }
+        glm::vec3 getCenter() { return center; }
 
     private:
         std::vector<Mesh> meshes;
 
         void processNode(aiNode* node, const aiScene* scene);
         Mesh processMesh(aiMesh* mesh, const aiScene* scene);
+
+        glm::vec3 size;
+        glm::vec3 center;
 };

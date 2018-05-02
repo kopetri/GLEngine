@@ -10,6 +10,7 @@
 class Shader;
 class Light;
 class Shape;
+class Texture;
 
 class Lighting
 {
@@ -25,6 +26,8 @@ public:
     glm::vec3 lightPointColor3;
     glm::vec3 lightDirectionalDirection1;
     glm::vec3 lightDirectionalColor1;
+    glm::vec3 backgroundColor;
+    glm::vec3 foregroundColor;
 
     GLfloat lightPointRadius1;
     GLfloat lightPointRadius2;
@@ -37,9 +40,13 @@ public:
     bool pointMode;
     bool directionalMode;
     bool iblMode;
+    bool enableEnvMap;
+    bool enableBackground;
+
+    std::shared_ptr<Texture> backgroundTexture;
 
     void setup();
-    void draw(Camera &camera, GBuffer &gBuffer, SSAO &ssao, Skybox &skybox);
+    void draw(Camera &camera, GBuffer &gBuffer, SSAO &ssao, Skybox &skybox, bool segmentation);
     void forwardPass(Camera &camera, GBuffer &gBuffer);
     void setRender(const Shape &render);
     GLuint framebuffer() { return fbo; }

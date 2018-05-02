@@ -59,7 +59,7 @@ void Skybox::setup()
     prefilterIBLShader->setShader("lighting/prefilterIBL.vert", "lighting/prefilterIBL.frag");
     integrateIBLShader->setShader("lighting/integrateIBL.vert", "lighting/integrateIBL.frag");
     // init texture
-    envMapHDR->setTextureHDR("hdr/appart.hdr", "appartHDR", true);
+    envMapHDR->setTexture("jpg/random_high_contrast.jpg", "appartHDR", true);
     envMapCube->setTextureCube(512, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR);
     envMapIrradiance->setTextureCube(32, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR);
     envMapPrefilter->setTextureCube(128, GL_RGB, GL_RGB16F, GL_FLOAT, GL_LINEAR_MIPMAP_LINEAR);
@@ -110,6 +110,10 @@ void Skybox::setTextureHDR(const char * texPath, std::string texName, bool texFl
     envMapHDR->setTextureHDR(texPath, texName, texFlip);
 }
 
+void Skybox::setTexture(const char * texPath, std::string texName, bool texFlip)
+{
+    envMapHDR->setTexture(texPath, texName, texFlip);
+}
 
 void Skybox::iblSetup(GLuint WIDTH, GLuint HEIGHT)
 {

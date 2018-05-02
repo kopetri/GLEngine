@@ -50,22 +50,27 @@ void Postprocess::setup(GLuint fbo)
     glUniform1i(glGetUniformLocation(firstpassPPShader->Program, "gEffects"), 2);
 }
 
-void Postprocess::draw(GBuffer &gBuffer, SSAO &ssao, Lighting &lighting)
+void Postprocess::draw(GBuffer &gBuffer, SSAO &ssao, Lighting &lighting, bool segmentation)
 {
     glClear(GL_COLOR_BUFFER_BIT);
 
     firstpassPPShader->useShader();
-    glUniform1i(glGetUniformLocation(firstpassPPShader->Program, "gBufferView"), lighting.gBufferView);
-    glUniform2f(glGetUniformLocation(firstpassPPShader->Program, "screenTextureSize"), 1.0f / width, 1.0f / height);
-    glUniform1f(glGetUniformLocation(firstpassPPShader->Program, "cameraAperture"), cameraAperture);
-    glUniform1f(glGetUniformLocation(firstpassPPShader->Program, "cameraShutterSpeed"), cameraShutterSpeed);
-    glUniform1f(glGetUniformLocation(firstpassPPShader->Program, "cameraISO"), cameraISO);
-    glUniform1i(glGetUniformLocation(firstpassPPShader->Program, "saoMode"), saoMode);
-    glUniform1i(glGetUniformLocation(firstpassPPShader->Program, "fxaaMode"), fxaaMode);
-    glUniform1i(glGetUniformLocation(firstpassPPShader->Program, "motionBlurMode"), motionBlurMode);
-    glUniform1f(glGetUniformLocation(firstpassPPShader->Program, "motionBlurScale"), int(ImGui::GetIO().Framerate) / 60.0f);
-    glUniform1i(glGetUniformLocation(firstpassPPShader->Program, "motionBlurMaxSamples"), motionBlurMaxSamples);
-    glUniform1i(glGetUniformLocation(firstpassPPShader->Program, "tonemappingMode"), tonemappingMode);
+    if (!segmentation)
+    {
+        glUniform1i(glGetUniformLocation(firstpassPPShader->Program, "gBufferView"), lighting.gBufferView);
+        glUniform2f(glGetUniformLocation(firstpassPPShader->Program, "screenTextureSize"), 1.0f / width, 1.0f / height);
+        glUniform1f(glGetUniformLocation(firstpassPPShader->Program, "cameraAperture"), cameraAperture);
+        glUniform1f(glGetUniformLocation(firstpassPPShader->Program, "cameraShutterSpeed"), cameraShutterSpeed);
+        glUniform1f(glGetUniformLocation(firstpassPPShader->Program, "cameraISO"), cameraISO);
+        glUniform1i(glGetUniformLocation(firstpassPPShader->Program, "saoMode"), saoMode);
+        glUniform1i(glGetUniformLocation(firstpassPPShader->Program, "fxaaMode"), fxaaMode);
+        glUniform1i(glGetUniformLocation(firstpassPPShader->Program, "motionBlurMode"), motionBlurMode);
+        glUniform1f(glGetUniformLocation(firstpassPPShader->Program, "motionBlurScale"), int(ImGui::GetIO().Framerate) / 60.0f);
+        glUniform1i(glGetUniformLocation(firstpassPPShader->Program, "motionBlurMaxSamples"), motionBlurMaxSamples);
+        glUniform1i(glGetUniformLocation(firstpassPPShader->Program, "tonemappingMode"), tonemappingMode);
+    }
+
+    glUniform1i(glGetUniformLocation(firstpassPPShader->Program, "segmentation"), segmentation);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, postprocessBuffer);

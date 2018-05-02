@@ -2,11 +2,13 @@
 #include "shader.h"
 #include "texture.h"
 #include "model.h"
+#include "boundingbox.h"
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 
-GBuffer::GBuffer(const GLuint width, const GLuint height):
+GBuffer::GBuffer(const GLuint width, const GLuint height) :
     gBuffer(0)
     , gPosition(0)
     , gAlbedo(0)
@@ -62,6 +64,9 @@ void GBuffer::setup()
     glGenFramebuffers(1, &gBuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
 
+    // Define the COLOR_ATTACHMENTS for the G-Buffer
+    std::vector<GLuint> attachments = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
+
     // Position
     glGenTextures(1, &gPosition);
     glBindTexture(GL_TEXTURE_2D, gPosition);
@@ -70,7 +75,7 @@ void GBuffer::setup()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, attachments[0], GL_TEXTURE_2D, gPosition, 0);
 
     // Albedo + Roughness
     glGenTextures(1, &gAlbedo);
@@ -78,7 +83,7 @@ void GBuffer::setup()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gAlbedo, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, attachments[1], GL_TEXTURE_2D, gAlbedo, 0);
 
     // Normals + Metalness
     glGenTextures(1, &gNormal);
@@ -86,7 +91,7 @@ void GBuffer::setup()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gNormal, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, attachments[2], GL_TEXTURE_2D, gNormal, 0);
 
     // Effects (AO + Velocity)
     glGenTextures(1, &gEffects);
@@ -94,11 +99,9 @@ void GBuffer::setup()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, gEffects, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, attachments[3], GL_TEXTURE_2D, gEffects, 0);
 
-    // Define the COLOR_ATTACHMENTS for the G-Buffer
-    GLuint attachments[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
-    glDrawBuffers(4, attachments);
+    glDrawBuffers(attachments.size(), attachments.data());
 
     // Z-Buffer
     glGenRenderbuffers(1, &zBuffer);
@@ -109,6 +112,8 @@ void GBuffer::setup()
     // Check if the framebuffer is complete before continuing
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer not complete !" << std::endl;
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void GBuffer::draw(Camera camera)

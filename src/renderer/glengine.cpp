@@ -14,6 +14,7 @@
 #include "ssao.h"
 #include "lighting.h"
 #include "postprocess.h"
+#include "boundingbox.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -56,17 +57,20 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 //---------------------
 // Functions prototypes
 //---------------------
-void captureFrame();
+void captureFrame(std::string output_path = "");
+void updatePose();
 void cameraMove();
 void imGuiSetup();
+void prepareModel();
+void prepareSkybox();
 float random(float min, float max);
 
 //---------------------------------
 // Variables & objects declarations
 //---------------------------------
 
-GLuint WIDTH = 512;
-GLuint HEIGHT = 512;
+GLuint WIDTH = 1200;
+GLuint HEIGHT = 800;
 
 GLfloat lastX = WIDTH / 2;
 GLfloat lastY = HEIGHT / 2;
@@ -81,7 +85,7 @@ GLfloat deltaGUITime = 0.0f;
 
 GLfloat theta = 0.0f;
 GLfloat rho = 0.0f;
-GLfloat radius = 2.5;
+GLfloat radius = 3.5;
 
 bool cameraMode;
 
@@ -93,7 +97,34 @@ bool guiIsOpen = true;
 bool isOrbitCamera = false;
 
 bool keys[1024];
+/*
+std::vector<bool> invertNormal = {
+    true,
+    true,
+    true
+};
+*/
+std::vector<bool> invertNormal = {
+    false,
+    true,
+    true,
+    false,
+    true,
+    true,
+    true,
+    true,
+    false,
+    true,
+    true,
+    true,
+    true,
+    false,
+    true,
+    false,
+    false,
+};
 
+/*
 std::vector<bool> invertNormal = {
     false,
     false,
@@ -148,19 +179,30 @@ std::vector<bool> invertNormal = {
     false,
     false
 };
+*/
 
-int fullRotationTicks = 100;
-int halfRotationTicks = 25;
-int index_fullRotationTicks = fullRotationTicks + 1;
-int index_halfRotationTicks = halfRotationTicks + 1;
-int frame = 0;
-
+int frame = -1;
+int imageCount = 50;
 int useEnvmapIndex = 0;
-bool record = false;
 bool recording = false;
+bool takeSnapShot = false;
+bool enableSegmentation = false;
+bool renderSegmentation = false;
+int recorded_frame = 0;
+bool use_unique_output_index = false;
+bool iterate_over_skyboxes = false;
+
+bool targetRendered = false;
+bool labelRendered = false;
+
+int currentSnapshot = 0;
 std::string recording_path = "./";
+std::string snapshot_path = TEXTURE_PATH;
 std::vector<fs::path> model_pool_paths;
+std::vector<fs::path> background_paths;
 std::vector<fs::path>::iterator current_pool_model;
+std::vector<fs::path>::iterator current_skybox;
+std::vector<fs::path> skyboxes;
 
 
 
@@ -245,7 +287,7 @@ int main(int argc, char* argv[])
     //---------
     // Model(s) 
     //---------
-    for (auto & p : fs::directory_iterator(std::string(MODEL_PATH).append("pool/")))
+    for (auto & p : fs::directory_iterator(std::string(MODEL_PATH).append("pool2/")))
     {
         if(!is_directory(p))
         {
@@ -255,12 +297,35 @@ int main(int argc, char* argv[])
         }
     }
 
+    //---------
+    // Background patches 
+    //---------
+    for (auto & p : fs::directory_iterator(std::string(TEXTURE_PATH).append("patches-512/")))
+    {
+        if (!is_directory(p))
+        {
+            auto f = p.path().generic_string().substr(std::string(TEXTURE_PATH).size());
+            background_paths.push_back(f);
+        }
+    }
+
+
     quadRender.setShape("quad", glm::vec3(0.0f));
 
 
     //-------
     // Skybox
     //-------
+    for (auto & p : fs::directory_iterator(std::string(TEXTURE_PATH).append("jpg/")))
+    {
+        if (!is_directory(p))
+        {
+            auto f = p.path().generic_string().substr(std::string(TEXTURE_PATH).size());
+            std::cout << "found skybox " << f << " in pool." << std::endl;
+            skyboxes.push_back(f);
+        }
+    }
+    current_skybox = skyboxes.begin();
     skybox.setup();
 
     //---------------------------------------------------------
@@ -322,7 +387,7 @@ int main(int argc, char* argv[])
     gBuffer.loadModel(model_pool_paths[0].generic_string(), glm::vec3(2.0));
 
     while (!glfwWindowShouldClose(window))
-    {
+    {   
         GLfloat currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
@@ -335,6 +400,32 @@ int main(int argc, char* argv[])
         //--------------
         imGuiSetup();
 
+        if (recording) {
+            // check for next model to be loaded
+            if (frame < 0 || frame >= imageCount)
+            {
+                frame = 0;
+                renderSegmentation = false;
+                prepareModel();
+            }
+
+            // update pose
+            if (!enableSegmentation || targetRendered && labelRendered) {
+                updatePose();
+                targetRendered = false;
+                labelRendered = false;
+                renderSegmentation = false;
+            }
+
+            // check for segmentation pass
+            if (enableSegmentation)
+                renderSegmentation = !renderSegmentation;
+            else
+                renderSegmentation = enableSegmentation;
+        }
+        else {
+            renderSegmentation = enableSegmentation;
+        }
 
         //------------------------
         // Geometry Pass rendering
@@ -355,7 +446,7 @@ int main(int argc, char* argv[])
         // Lighting Pass rendering
         //------------------------
         glQueryCounter(queryIDLighting[0], GL_TIMESTAMP);
-        lighting.draw(camera, gBuffer, ssao, skybox);
+        lighting.draw(camera, gBuffer, ssao, skybox, renderSegmentation);
         glQueryCounter(queryIDLighting[1], GL_TIMESTAMP);
 
 
@@ -363,7 +454,7 @@ int main(int argc, char* argv[])
         // Post-processing Pass rendering
         //-------------------------------
         glQueryCounter(queryIDPostprocess[0], GL_TIMESTAMP);
-        postprocess.draw(gBuffer, ssao, lighting);
+        postprocess.draw(gBuffer, ssao, lighting, renderSegmentation);
         glQueryCounter(queryIDPostprocess[1], GL_TIMESTAMP);
 
 
@@ -381,7 +472,10 @@ int main(int argc, char* argv[])
         {
             captureFrame();
         }
-
+        if (takeSnapShot) {
+            takeSnapShot = false;
+            captureFrame(std::string(snapshot_path).append("snapshot-").append(std::to_string(currentSnapshot++)).append(".png"));
+        }
 
         //----------------
         // ImGui rendering
@@ -432,6 +526,7 @@ int main(int argc, char* argv[])
         deltaGUITime = (stopGUITime - startGUITime) / 1000000.0;
 
         glfwSwapBuffers(window);
+       
     }
 
     //---------
@@ -467,6 +562,16 @@ void imGuiSetup()
 
     if (ImGui::CollapsingHeader("Rendering", 0, true, true))
     {
+        if (ImGui::Button("Take Snapchot")) {
+            takeSnapShot = true;
+        }
+
+        ImGui::Checkbox("Enable Segmentation", &enableSegmentation);
+        if (enableSegmentation) {
+            ImGui::ColorEdit3("Class: Background", (float*)&lighting.backgroundColor);
+            ImGui::ColorEdit3("Class: Foreground", (float*)&lighting.foregroundColor);
+        }
+
         if (ImGui::TreeNode("Material"))
         {
             ImGui::Checkbox("Negative Normals", &gBuffer.negativeNormals);
@@ -474,9 +579,9 @@ void imGuiSetup()
             ImGui::Checkbox("Albedo Texture", &gBuffer.useAlbedoTexture);
             ImGui::Checkbox("Normal Texture", &gBuffer.useNormalTexture);
             ImGui::Checkbox("Metalness Texture", &gBuffer.useMetalnessTexture);
-            if(!gBuffer.useAlbedoTexture)
+            if (!gBuffer.useAlbedoTexture)
                 ImGui::ColorEdit3("Albedo", (float*)&gBuffer.albedoColor);
-            if(!gBuffer.useRoughnessTexture)
+            if (!gBuffer.useRoughnessTexture)
                 ImGui::SliderFloat("Roughness", &gBuffer.materialRoughness, 0.0f, 1.0f);
             if (!gBuffer.useMetalnessTexture)
                 ImGui::SliderFloat("Metalness", &gBuffer.materialMetallicity, 0.0f, 1.0f);
@@ -556,45 +661,69 @@ void imGuiSetup()
                 ImGui::TreePop();
             }
 
-            if (ImGui::TreeNode("Environment map"))
+            ImGui::Checkbox("Enable Environment map", &lighting.enableEnvMap);
+            if (lighting.enableEnvMap)
             {
-                if (ImGui::Button("Appartment"))
+                ImGui::Checkbox("Iterate over skyboxes", &iterate_over_skyboxes);
+                if (ImGui::TreeNode("Environment map"))
                 {
-                    skybox.setTextureHDR("hdr/appart.hdr", "appartHDR", true);
-                    skybox.iblSetup(WIDTH, HEIGHT);
-                }
+                    if (ImGui::Button("Appartment"))
+                    {
+                        skybox.setTextureHDR("hdr/appart.hdr", "appartHDR", true);
+                        skybox.iblSetup(WIDTH, HEIGHT);
+                    }
 
-                if (ImGui::Button("Pisa"))
-                {
-                    skybox.setTextureHDR("hdr/pisa.hdr", "pisaHDR", true);
-                    skybox.iblSetup(WIDTH, HEIGHT);
-                }
+                    if (ImGui::Button("Pisa"))
+                    {
+                        skybox.setTextureHDR("hdr/pisa.hdr", "pisaHDR", true);
+                        skybox.iblSetup(WIDTH, HEIGHT);
+                    }
 
-                if (ImGui::Button("Canyon"))
-                {
-                    skybox.setTextureHDR("hdr/canyon.hdr", "canyonHDR", true);
-                    skybox.iblSetup(WIDTH, HEIGHT);
-                }
+                    if (ImGui::Button("Canyon"))
+                    {
+                        skybox.setTextureHDR("hdr/canyon.hdr", "canyonHDR", true);
+                        skybox.iblSetup(WIDTH, HEIGHT);
+                    }
 
-                if (ImGui::Button("Loft"))
-                {
-                    skybox.setTextureHDR("hdr/loft.hdr", "loftHDR", true);
-                    skybox.iblSetup(WIDTH, HEIGHT);
-                }
+                    if (ImGui::Button("Loft"))
+                    {
+                        skybox.setTextureHDR("hdr/loft.hdr", "loftHDR", true);
+                        skybox.iblSetup(WIDTH, HEIGHT);
+                    }
 
-                if (ImGui::Button("Path"))
-                {
-                    skybox.setTextureHDR("hdr/path.hdr", "pathHDR", true);
-                    skybox.iblSetup(WIDTH, HEIGHT);
-                }
+                    if (ImGui::Button("Path"))
+                    {
+                        skybox.setTextureHDR("hdr/path.hdr", "pathHDR", true);
+                        skybox.iblSetup(WIDTH, HEIGHT);
+                    }
 
-                if (ImGui::Button("Circus"))
-                {
-                    skybox.setTextureHDR("hdr/circus.hdr", "circusHDR", true);
-                    skybox.iblSetup(WIDTH, HEIGHT);
-                }
+                    if (ImGui::Button("Circus"))
+                    {
+                        skybox.setTextureHDR("hdr/circus.hdr", "circusHDR", true);
+                        skybox.iblSetup(WIDTH, HEIGHT);
+                    }
 
-                ImGui::TreePop();
+                    for (auto sky : skyboxes) {
+                        auto s = sky.generic_string();
+                        if (ImGui::Button(std::string(s).c_str()))
+                        {
+                            skybox.setTexture(s.c_str(), s, true);
+                            skybox.iblSetup(WIDTH, HEIGHT);
+                        }
+                    }
+
+                    ImGui::TreePop();
+                }
+            }
+            else {
+                ImGui::Checkbox("Enable Background Texture", &lighting.enableBackground);
+                if (lighting.enableBackground) {
+                    int backgroundID = ceil(random(0, background_paths.size()-1));
+                    lighting.backgroundTexture->setTexture(std::string("patches-512/").append(std::to_string(backgroundID)).append(".jpg").c_str(), "patch", true);
+                }
+                else {
+                    ImGui::ColorEdit3("Background color", (float*)&lighting.backgroundColor);
+                }
             }
 
             ImGui::TreePop();
@@ -643,6 +772,7 @@ void imGuiSetup()
 
             ImGui::TreePop();
         }
+        
 
         if (ImGui::TreeNode("Camera"))
         {
@@ -652,139 +782,24 @@ void imGuiSetup()
             ImGui::Checkbox("Orbitting Camera", &isOrbitCamera);
             if(isOrbitCamera)
             {
-                ImGui::Checkbox("Record Mode", &record);
-                if (record)
-                {
-                    if (ImGui::Button("Start Record"))
-                    {
-                        // set first model
-                        current_pool_model = model_pool_paths.begin();
-                        gBuffer.loadModel(current_pool_model->generic_string(), glm::vec3(2.0f));
-                        auto d = std::find(model_pool_paths.begin(), model_pool_paths.end(), static_cast<fs::path>(*current_pool_model)) - model_pool_paths.begin();
-                        if (d < invertNormal.size()) {
-                            gBuffer.negativeNormals = invertNormal[d];
-                        }
-                        //set proper output dir
-                        auto output = current_pool_model->generic_string();
-                        const auto outputDir = fs::path(std::string(MODEL_PATH) + output.substr(0, output.size() - 4));
-                        if(!fs::is_directory(outputDir))
-                        {
-                            fs::create_directory(outputDir);
-                        }
-                        recording_path = outputDir.generic_string() + "/";
-                        // set background
-                        useEnvmapIndex = 0;
-                        skybox.setTextureHDR("hdr/appart.hdr", "appartHDR", true);
-                        skybox.iblSetup(WIDTH, HEIGHT);
-                        // reset indices
-                        index_fullRotationTicks = 0;
-                        index_halfRotationTicks = 0;
-
-                        // reset frame index
-                        frame = 0;
-
-                        // set recording
+                ImGui::Checkbox("Unique Output Index", &use_unique_output_index);
+                if (recording) {
+                    if (ImGui::Button("Stop Recording")) {
+                        recording = false;
+                    }
+                }
+                else {
+                    if (ImGui::Button("Start Recording")) {
                         recording = true;
-                    }
-
-                    if(recording)
-                    {
-                        if(ImGui::Button("Stop Recording"))
-                        {
-                            recording = false;
-                            index_fullRotationTicks = fullRotationTicks + 1;
-                            index_halfRotationTicks = halfRotationTicks + 1;
-                            current_pool_model = model_pool_paths.end();
-                        }
-                    }
-
-                    if (index_fullRotationTicks <= fullRotationTicks && index_halfRotationTicks <= halfRotationTicks)
-                    {
-                        theta = -glm::pi<float>() + 2.0f * glm::pi<float>() / static_cast<float>(fullRotationTicks) * index_fullRotationTicks;
-                        rho = -glm::pi<float>()*.5f + glm::pi<float>() / static_cast<float>(halfRotationTicks) * index_halfRotationTicks;
-                        index_fullRotationTicks++;
-                        if (index_fullRotationTicks >= fullRotationTicks)
-                        {
-                            index_fullRotationTicks = 0;
-                            index_halfRotationTicks++;
-                        }
-                    } else
-                    {
-                        if (useEnvmapIndex < 6 && recording)
-                        {
-                            ++useEnvmapIndex;
-                            switch (useEnvmapIndex)
-                            {
-                            case 0:
-                                skybox.setTextureHDR("hdr/appart.hdr", "appartHDR", true);
-                                break;
-                            case 1:
-                                skybox.setTextureHDR("hdr/canyon.hdr", "canyonHDR", true);
-                                break;
-                            case 2:
-                                skybox.setTextureHDR("hdr/pisa.hdr", "pisaHDR", true);
-                                break;
-                            case 3:
-                                skybox.setTextureHDR("hdr/loft.hdr", "loftHDR", true);
-                                break;
-                            case 4:
-                                skybox.setTextureHDR("hdr/path.hdr", "pathHDR", true);
-                                break;
-                            case 5:
-                                skybox.setTextureHDR("hdr/circus.hdr", "circusHDR", true);
-                                break;
-                            default:
-                                skybox.setTextureHDR("hdr/appart.hdr", "appartHDR", true);
-                                break;
-                            }
-
-                            skybox.iblSetup(WIDTH, HEIGHT);
-
-                            // reset indices
-                            index_fullRotationTicks = 0;
-                            index_halfRotationTicks = 0;
-                        } else
-                        if(current_pool_model != model_pool_paths.end() && recording)
-                        {
-                            // iterate next model
-                            ++current_pool_model;
-                            gBuffer.loadModel(current_pool_model->generic_string(), glm::vec3(2.0f));
-
-                            auto d = static_cast<int>(std::find(model_pool_paths.begin(), model_pool_paths.end(), static_cast<fs::path>(*current_pool_model)) - model_pool_paths.begin());
-                            if (d < invertNormal.size()) {
-                                gBuffer.negativeNormals = invertNormal[d];
-                            }
-
-                            //set proper output dir
-                            auto output = current_pool_model->generic_string();
-                            const auto outputDir = fs::path(output.substr(0, output.size() - 4));
-                            if (!fs::is_directory(outputDir))
-                            {
-                                fs::create_directory(outputDir);
-                            }
-
-                            recording_path = outputDir.generic_string() + "/";
-
-                            useEnvmapIndex = 0;
-
-                            // reset indices
-                            index_fullRotationTicks = 0;
-                            index_halfRotationTicks = 0;
-
-                            // reset frame index
-                            frame = 0;
-                        } else
-                        {
-                            recording = false;
-                        }
+                        current_pool_model = model_pool_paths.begin();
+                        frame = -1;
                     }
                 }
-                else
-                {
-                    ImGui::SliderFloat("Theta", &theta, -glm::pi<float>(), glm::pi<float>());
-                    ImGui::SliderFloat("Rho", &rho, -glm::pi<float>()*.5f, glm::pi<float>()*.5f);
-                    ImGui::SliderFloat("Radius", &radius, 1.0, 10.f);
-                }
+                
+                ImGui::SliderFloat("Theta", &theta, -glm::pi<float>(), glm::pi<float>());
+                ImGui::SliderFloat("Rho", &rho, -glm::pi<float>()*.5f, glm::pi<float>()*.5f);
+                ImGui::SliderFloat("Radius", &radius, 1.0, 10.f);
+                
                 const auto d = glm::cos(rho) * radius;
                 const auto x = d * glm::cos(theta);
                 const auto y = glm::sqrt(radius * radius - d * d) * (rho<0 ? 1.0f : -1.0f);
@@ -841,53 +856,55 @@ void imGuiSetup()
                 ImGui::TreePop();
             }
 
-            if (ImGui::TreeNode("Material"))
-            {
-                if (ImGui::Button("Rusted iron"))
+            if (!renderSegmentation) {
+                if (ImGui::TreeNode("Material"))
                 {
-                    gBuffer.setTexture(GBuffer::Albedo, "pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true);
-                    gBuffer.setTexture(GBuffer::Normal, "pbr/rustediron/rustediron_normal.png", "ironNormal", true);
-                    gBuffer.setTexture(GBuffer::Roughness, "pbr/rustediron/rustediron_roughness.png", "ironRoughness", true);
-                    gBuffer.setTexture(GBuffer::Metalness, "pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
-                    gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/rustediron/rustediron_ao.png", "ironAO", true);
+                    if (ImGui::Button("Rusted iron"))
+                    {
+                        gBuffer.setTexture(GBuffer::Albedo, "pbr/rustediron/rustediron_albedo.png", "ironAlbedo", true);
+                        gBuffer.setTexture(GBuffer::Normal, "pbr/rustediron/rustediron_normal.png", "ironNormal", true);
+                        gBuffer.setTexture(GBuffer::Roughness, "pbr/rustediron/rustediron_roughness.png", "ironRoughness", true);
+                        gBuffer.setTexture(GBuffer::Metalness, "pbr/rustediron/rustediron_metalness.png", "ironMetalness", true);
+                        gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/rustediron/rustediron_ao.png", "ironAO", true);
 
-                    lighting.materialF0 = glm::vec3(0.04f);
+                        lighting.materialF0 = glm::vec3(0.04f);
+                    }
+
+                    if (ImGui::Button("Gold"))
+                    {
+                        gBuffer.setTexture(GBuffer::Albedo, "pbr/gold/gold_albedo.png", "goldAlbedo", true);
+                        gBuffer.setTexture(GBuffer::Normal, "pbr/gold/gold_normal.png", "goldNormal", true);
+                        gBuffer.setTexture(GBuffer::Roughness, "pbr/gold/gold_roughness.png", "goldRoughness", true);
+                        gBuffer.setTexture(GBuffer::Metalness, "pbr/gold/gold_metalness.png", "goldMetalness", true);
+                        gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/gold/gold_ao.png", "goldAO", true);
+
+                        lighting.materialF0 = glm::vec3(1.0f, 0.72f, 0.29f);
+                    }
+
+                    if (ImGui::Button("Ceramic"))
+                    {
+                        gBuffer.setTexture(GBuffer::Albedo, "pbr/ceramic/ceramic_albedo.png", "goldAlbedo", true);
+                        gBuffer.setTexture(GBuffer::Normal, "pbr/ceramic/ceramic_normal.png", "goldNormal", true);
+                        gBuffer.setTexture(GBuffer::Roughness, "pbr/ceramic/ceramic_roughness.png", "goldRoughness", true);
+                        gBuffer.setTexture(GBuffer::Metalness, "pbr/ceramic/ceramic_metalness.png", "goldMetalness", true);
+                        gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/ceramic/ceramic_ao.png", "goldAO", true);
+
+                        lighting.materialF0 = glm::vec3(1.0f, 1.0f, 1.0f);
+                    }
+
+                    if (ImGui::Button("Woodfloor"))
+                    {
+                        gBuffer.setTexture(GBuffer::Albedo, "pbr/woodfloor/woodfloor_albedo.png", "woodfloorAlbedo", true);
+                        gBuffer.setTexture(GBuffer::Normal, "pbr/woodfloor/woodfloor_normal.png", "woodfloorNormal", true);
+                        gBuffer.setTexture(GBuffer::Roughness, "pbr/woodfloor/woodfloor_roughness.png", "woodfloorRoughness", true);
+                        gBuffer.setTexture(GBuffer::Metalness, "pbr/woodfloor/woodfloor_metalness.png", "woodfloorMetalness", true);
+                        gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/woodfloor/woodfloor_ao.png", "woodfloorAO", true);
+
+                        lighting.materialF0 = glm::vec3(0.04f);
+                    }
+
+                    ImGui::TreePop();
                 }
-
-                if (ImGui::Button("Gold"))
-                {
-                    gBuffer.setTexture(GBuffer::Albedo, "pbr/gold/gold_albedo.png", "goldAlbedo", true);
-                    gBuffer.setTexture(GBuffer::Normal, "pbr/gold/gold_normal.png", "goldNormal", true);
-                    gBuffer.setTexture(GBuffer::Roughness, "pbr/gold/gold_roughness.png", "goldRoughness", true);
-                    gBuffer.setTexture(GBuffer::Metalness, "pbr/gold/gold_metalness.png", "goldMetalness", true);
-                    gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/gold/gold_ao.png", "goldAO", true);
-
-                    lighting.materialF0 = glm::vec3(1.0f, 0.72f, 0.29f);
-                }
-
-                if (ImGui::Button("Ceramic"))
-                {
-                    gBuffer.setTexture(GBuffer::Albedo, "pbr/ceramic/ceramic_albedo.png", "goldAlbedo", true);
-                    gBuffer.setTexture(GBuffer::Normal, "pbr/ceramic/ceramic_normal.png", "goldNormal", true);
-                    gBuffer.setTexture(GBuffer::Roughness, "pbr/ceramic/ceramic_roughness.png", "goldRoughness", true);
-                    gBuffer.setTexture(GBuffer::Metalness, "pbr/ceramic/ceramic_metalness.png", "goldMetalness", true);
-                    gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/ceramic/ceramic_ao.png", "goldAO", true);
-
-                    lighting.materialF0 = glm::vec3(1.0f, 1.0f, 1.0f);
-                }
-
-                if (ImGui::Button("Woodfloor"))
-                {
-                    gBuffer.setTexture(GBuffer::Albedo, "pbr/woodfloor/woodfloor_albedo.png", "woodfloorAlbedo", true);
-                    gBuffer.setTexture(GBuffer::Normal, "pbr/woodfloor/woodfloor_normal.png", "woodfloorNormal", true);
-                    gBuffer.setTexture(GBuffer::Roughness, "pbr/woodfloor/woodfloor_roughness.png", "woodfloorRoughness", true);
-                    gBuffer.setTexture(GBuffer::Metalness, "pbr/woodfloor/woodfloor_metalness.png", "woodfloorMetalness", true);
-                    gBuffer.setTexture(GBuffer::AmbientOcclusion, "pbr/woodfloor/woodfloor_ao.png", "woodfloorAO", true);
-
-                    lighting.materialF0 = glm::vec3(0.04f);
-                }
-
-                ImGui::TreePop();
             }
 
             ImGui::TreePop();
@@ -1019,12 +1036,24 @@ float random(float min, float max)
     return ((static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX)) * (max - min)) + min;
 }
 
-void captureFrame()
+void updatePose()
 {
+    theta = random(-glm::pi<float>(), glm::pi<float>());
+    rho = random(-glm::pi<float>(), 0);
+    lighting.lightDirectionalDirection1.x = -5; //random(-5.f, 5.f);
+    lighting.lightDirectionalDirection1.y = -5; //random(-5.f, 5.f);
+    lighting.lightDirectionalDirection1.z = 5; //random(-5.f, 5.f);
+    radius = random(1.7f, 3.5f);
+}
+
+void captureFrame(std::string output_path)
+{
+    
     const auto channels = 4;
-    unsigned char* ptr = new unsigned char[WIDTH * HEIGHT * channels];
+    //unsigned char* ptr = new unsigned char[WIDTH * HEIGHT * channels];
+    std::vector<unsigned char> data(WIDTH * HEIGHT * channels);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
-    glReadPixels(0, 0, WIDTH, HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, ptr);
+    glReadPixels(0, 0, WIDTH, HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, &data[0]);
     // glReadPixels reads the given rectangle from bottom-left to top-right, so we must
     // reverse it
     for (int y = 0; y < HEIGHT / 2; y++)
@@ -1036,12 +1065,88 @@ void captureFrame()
             const int swapOffset = channels * (x + swapY * WIDTH);
 
             // Swap R, G and B of the 2 pixels
-            std::swap(ptr[offset + 0], ptr[swapOffset + 0]);
-            std::swap(ptr[offset + 1], ptr[swapOffset + 1]);
-            std::swap(ptr[offset + 2], ptr[swapOffset + 2]);
+            std::swap(data[offset + 0], data[swapOffset + 0]);
+            std::swap(data[offset + 1], data[swapOffset + 1]);
+            std::swap(data[offset + 2], data[swapOffset + 2]);
         }
     }
-    std::cout << "writing frame" << frame << " to " << recording_path << std::endl;
-    stbi_write_png(std::string(recording_path + "frame" + std::to_string(frame++) + ".png").c_str(), WIDTH, HEIGHT, 4, ptr, WIDTH * channels);
-    delete[] ptr;
+    if (output_path.size() <= 0) {
+       
+        if (renderSegmentation) {
+            if (frame - 1 >= 0) {
+                auto path = std::string(recording_path + "segment" + std::to_string(frame - 1) + ".jpg").c_str();
+                std::cout << path << std::endl;
+                stbi_write_jpg(path, WIDTH, HEIGHT, 4, data.data(), WIDTH * channels);
+                
+            }
+            labelRendered = true;
+        }
+        else {
+            if (frame < imageCount - 1) {
+                auto path = "";
+                if(use_unique_output_index)
+                    path = std::string(recording_path + "frame" + std::to_string(recorded_frame) + ".jpg").c_str();
+                else
+                    path = std::string(recording_path + "frame" + std::to_string(frame) + ".jpg").c_str();
+                std::cout << path << std::endl;
+                stbi_write_jpg(path, WIDTH, HEIGHT, 4, data.data(), WIDTH * channels);
+                recorded_frame++;
+            }
+            targetRendered = true;
+        }
+    }
+    else {
+        std::cout << "writing snapshot " << currentSnapshot-1 << " to " << output_path << std::endl;
+        stbi_write_jpg(output_path.c_str(), WIDTH, HEIGHT, 4, data.data(), WIDTH * channels);
+    }
+    if (!enableSegmentation || labelRendered && targetRendered) {
+        frame++;
+    }
+}
+
+void prepareModel()
+{
+    if (!recording) return;
+
+    if (current_pool_model >= model_pool_paths.end()) {
+        if (iterate_over_skyboxes)
+            prepareSkybox();
+        else
+            recording = false;
+        return;
+    }       
+
+    std::cout << current_pool_model->generic_string() << std::endl;
+    gBuffer.loadModel(current_pool_model->generic_string(), glm::vec3(2.0f));
+
+    auto d = static_cast<int>(std::find(model_pool_paths.begin(), model_pool_paths.end(), static_cast<fs::path>(*current_pool_model)) - model_pool_paths.begin());
+    if (d < invertNormal.size()) {
+        gBuffer.negativeNormals = invertNormal[d];
+    }
+
+    //set proper output dir
+    auto output = current_pool_model->generic_string();
+    const auto outputDir = fs::path(std::string(MODEL_PATH) + output.substr(0, output.size() - 4));
+    if (!fs::is_directory(outputDir))
+    {
+        fs::create_directory(outputDir);
+    }
+
+    recording_path = outputDir.generic_string() + "/";
+    ++current_pool_model;
+}
+
+
+void prepareSkybox()
+{
+    if (!recording || !iterate_over_skyboxes) return;
+    current_skybox++;
+    if (current_skybox >= skyboxes.end()) {
+        recording = false;
+        return;
+    }
+    std::cout << current_skybox->generic_string() << std::endl;
+    skybox.setTexture(current_skybox->generic_string().c_str(), current_skybox->generic_string().c_str(), true);
+    skybox.iblSetup(WIDTH, HEIGHT);
+    current_pool_model = model_pool_paths.begin();
 }

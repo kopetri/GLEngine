@@ -7,6 +7,7 @@
 class Shader;
 class Texture;
 class Model;
+class BoundingBox;
 
 class GBuffer
 {

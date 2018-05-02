@@ -24,7 +24,7 @@ class Mesh {
         std::vector<GLuint> indices;
         glm::vec3 centroid;
 
-        Mesh(std::vector<Vertex>& vertices, std::vector<GLuint>& indices, glm::vec3& centroid);
+        Mesh(std::vector<Vertex>& vertices, std::vector<GLuint>& indices);
         ~Mesh();
         void Draw();
 

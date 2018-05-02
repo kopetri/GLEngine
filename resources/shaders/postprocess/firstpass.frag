@@ -23,6 +23,7 @@ uniform float cameraShutterSpeed;
 uniform float cameraISO;
 uniform float motionBlurScale;
 uniform vec2 screenTextureSize;
+uniform bool segmentation;
 
 
 vec3 colorLinear(vec3 colorVector);
@@ -38,7 +39,10 @@ vec3 computeMotionBlur(vec3 colorVector);
 void main()
 {
     vec3 color;
-
+    if(segmentation){
+        colorOutput = vec4(texture(screenTexture, TexCoords).rgb, 1.0f);
+        return;
+    }    
     if(gBufferView == 1)
     {
         // FXAA computation

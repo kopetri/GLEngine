@@ -28,7 +28,7 @@ public:
 
 
     void setup(GLuint fbo);
-    void draw(GBuffer &gBuffer, SSAO &ssao, Lighting &lighting);
+    void draw(GBuffer &gBuffer, SSAO &ssao, Lighting &lighting, bool segmentation);
     void setRender(const Shape &render);
 private:
     GLuint fbo;

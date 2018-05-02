@@ -33,17 +33,23 @@ uniform sampler2D envMap;
 uniform samplerCube envMapIrradiance;
 uniform samplerCube envMapPrefilter;
 uniform sampler2D envMapLUT;
+uniform sampler2D backgroundTexture;
 
 uniform int gBufferView;
 uniform bool pointMode;
 uniform bool directionalMode;
 uniform bool iblMode;
+uniform bool enableEnvMap;
+uniform bool enableBackground;
+uniform bool segmentationEnabled;
 uniform int attenuationMode;
 uniform float materialRoughness;
 uniform float materialMetallicity;
 uniform float ambientIntensity;
 uniform vec3 materialF0;
 uniform mat4 view;
+uniform vec3 backgroundColor;
+uniform vec3 foregroundColor;
 
 vec3 colorLinear(vec3 colorVector);
 float saturate(float f);
@@ -60,13 +66,24 @@ void main()
 {
     // Retrieve G-Buffer informations
     vec3 viewPos = texture(gPosition, TexCoords).rgb;
+    float depth = texture(gPosition, TexCoords).a;
+
+    if(segmentationEnabled) {
+        if(depth == 1.0f)
+        {
+            colorOutput = vec4(backgroundColor, 1.0f);
+        } else{
+            colorOutput = vec4(foregroundColor, 1.0f);
+        }
+        return;
+    }
     vec3 albedo = colorLinear(texture(gAlbedo, TexCoords).rgb);
     vec3 normal = texture(gNormal, TexCoords).rgb;
     float roughness = texture(gAlbedo, TexCoords).a;
     float metalness = texture(gNormal, TexCoords).a;
     float ao = texture(gEffects, TexCoords).r;
     vec2 velocity = texture(gEffects, TexCoords).gb;
-    float depth = texture(gPosition, TexCoords).a;
+    
 
     float sao = texture(sao, TexCoords).r;
     vec3 envColor = texture(envMap, getSphericalCoord(normalize(envMapCoords))).rgb;
@@ -77,7 +94,14 @@ void main()
 
     if(depth == 1.0f)
     {
-        color = envColor;
+        if(enableEnvMap){
+            color = envColor;
+        } else {
+            if(enableBackground)
+                color = texture(backgroundTexture, TexCoords).rgb;
+            else
+                color = backgroundColor;
+        }
     }
 
     else
@@ -179,11 +203,15 @@ void main()
             kD *= 1.0f - metalness;
 
             // Diffuse irradiance computation
-            vec3 diffuseIrradiance = texture(envMapIrradiance, N * mat3(view)).rgb;
+            vec3 diffuseIrradiance = vec3(1.f);
+            //if(enableEnvMap)
+                diffuseIrradiance = texture(envMapIrradiance, N * mat3(view)).rgb;
             diffuseIrradiance *= albedo;
 
             // Specular radiance computation
-            vec3 specularRadiance = textureLod(envMapPrefilter, R * mat3(view), roughness * prefilterLODLevel).rgb;
+            vec3 specularRadiance = vec3(1.f);
+            //if(enableEnvMap)
+                specularRadiance = textureLod(envMapPrefilter, R * mat3(view), roughness * prefilterLODLevel).rgb;
             vec2 brdfSampling = texture(envMapLUT, vec2(NdotV, roughness)).rg;
             specularRadiance *= F * brdfSampling.x + brdfSampling.y;
 

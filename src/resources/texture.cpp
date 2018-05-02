@@ -4,7 +4,7 @@
 #include <iostream>
 
 #include <glad/glad.h>
-
+#include "stb_image_write.h"
 #include "stb_image.h"
 #include "texture.h"
 
@@ -23,6 +23,9 @@ Texture::~Texture()
 
 void Texture::setTexture(const char* texPath, std::string texName, bool texFlip)
 {
+    if (this->texID) {
+        glDeleteTextures(1, &this->texID);
+    }
     this->texType = GL_TEXTURE_2D;
 
     std::string tempPath = TEXTURE_PATH + std::string(texPath);
@@ -43,6 +46,7 @@ void Texture::setTexture(const char* texPath, std::string texName, bool texFlip)
 
     this->texWidth = width;
     this->texHeight = height;
+
     this->texComponents = numComponents;
     this->texName = texName;
 
@@ -55,7 +59,6 @@ void Texture::setTexture(const char* texPath, std::string texName, bool texFlip)
         else if (numComponents == 4)
             this->texFormat = GL_RGBA;
         this->texInternalFormat = this->texFormat;
-
         glTexImage2D(GL_TEXTURE_2D, 0, this->texInternalFormat, this->texWidth, this->texHeight, 0, this->texFormat, GL_UNSIGNED_BYTE, texData);
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
