@@ -1,4 +1,4 @@
-/* stb.h - v2.27 - Sean's Tool Box -- public domain -- http://nothings.org/stb.h
+/* stb.h - v2.31 - Sean's Tool Box -- public domain -- http://nothings.org/stb.h
           no warranty is offered or implied; use this code at your own risk
 
    This is a single header file with a bunch of useful utilities
@@ -25,6 +25,10 @@
 
 Version History
 
+   2.31   stb_ucharcmp
+   2.30   MinGW fix
+   2.29   attempt to fix use of swprintf()
+   2.28   various new functionality
    2.27   test _WIN32 not WIN32 in STB_THREADS
    2.26   various warning & bugfixes
    2.25   various warning & bugfixes
@@ -172,9 +176,7 @@ Parenthesized items have since been removed.
 
 LICENSE
 
-This software is dual-licensed to the public domain and under the following
-license: you are granted a perpetual, irrevocable license to copy, modify,
-publish, and distribute this file as you see fit.
+ See end of file for license information.
 
 CREDITS
 
@@ -185,13 +187,17 @@ CREDITS
   Robert Nix
   r-lyeh
   blackpawn
-  Mojofreem@github
+  github:Mojofreem
   Ryan Whitworth
   Vincent Isambart
   Mike Sartain
   Eugene Opalev
   Tim Sjostrand
+  github:infatum
+  Dave Butler (Croepha)
 */
+
+#include <stdarg.h>
 
 #ifndef STB__INCLUDE_STB_H
 #define STB__INCLUDE_STB_H
@@ -729,6 +735,7 @@ STB_EXTERN int  stb_snprintf(char *s, size_t n, const char *fmt, ...);
 STB_EXTERN int  stb_vsnprintf(char *s, size_t n, const char *fmt, va_list v);
 
 #ifdef STB_DEFINE
+
 int stb_vsnprintf(char *s, size_t n, const char *fmt, va_list v)
 {
    int res;
@@ -1023,8 +1030,8 @@ stb__wchar *stb__from_utf8(char *str)
 
 stb__wchar *stb__from_utf8_alt(char *str)
 {
-   static stb__wchar buffer[64];
-   return stb_from_utf8(buffer, str, 64);
+   static stb__wchar buffer[4096];
+   return stb_from_utf8(buffer, str, 4096);
 }
 
 char *stb__to_utf8(stb__wchar *str)
@@ -1543,7 +1550,7 @@ STB_EXTERN int (*stb_doublecmp(int offset))(const void *a, const void *b);
 STB_EXTERN int (*stb_charcmp(int offset))(const void *a, const void *b);
 
 #ifdef STB_DEFINE
-static int stb__intcmpoffset, stb__charcmpoffset, stb__strcmpoffset;
+static int stb__intcmpoffset, stb__ucharcmpoffset, stb__strcmpoffset;
 static int stb__floatcmpoffset, stb__doublecmpoffset;
 
 int stb__intcmp(const void *a, const void *b)
@@ -1553,10 +1560,10 @@ int stb__intcmp(const void *a, const void *b)
    return p < q ? -1 : p > q;
 }
 
-int stb__charcmp(const void *a, const void *b)
+int stb__ucharcmp(const void *a, const void *b)
 {
-   const int p = *(const unsigned char *) ((const char *) a + stb__charcmpoffset);
-   const int q = *(const unsigned char *) ((const char *) b + stb__charcmpoffset);
+   const int p = *(const unsigned char *) ((const char *) a + stb__ucharcmpoffset);
+   const int q = *(const unsigned char *) ((const char *) b + stb__ucharcmpoffset);
    return p < q ? -1 : p > q;
 }
 
@@ -1594,10 +1601,10 @@ int (*stb_intcmp(int offset))(const void *, const void *)
    return &stb__intcmp;
 }
 
-int (*stb_charcmp(int offset))(const void *, const void *)
+int (*stb_ucharcmp(int offset))(const void *, const void *)
 {
-   stb__charcmpoffset = offset;
-   return &stb__charcmp;
+   stb__ucharcmpoffset = offset;
+   return &stb__ucharcmp;
 }
 
 int (*stb_qsort_strcmp(int offset))(const void *, const void *)
@@ -1623,7 +1630,6 @@ int (*stb_doublecmp(int offset))(const void *, const void *)
    stb__doublecmpoffset = offset;
    return &stb__doublecmp;
 }
-
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1790,7 +1796,7 @@ STB_EXTERN int    stb_prefix (char *s, char *t);
 STB_EXTERN char * stb_strichr(char *s, char t);
 STB_EXTERN char * stb_stristr(char *s, char *t);
 STB_EXTERN int    stb_prefix_count(char *s, char *t);
-STB_EXTERN char * stb_plural(int n);  // "s" or ""
+STB_EXTERN const char * stb_plural(int n);  // "s" or ""
 STB_EXTERN size_t stb_strscpy(char *d, const char *s, size_t n);
 
 STB_EXTERN char **stb_tokens(char *src, char *delimit, int *count);
@@ -1817,7 +1823,7 @@ size_t stb_strscpy(char *d, const char *s, size_t n)
    return len + 1;
 }
 
-char *stb_plural(int n)
+const char *stb_plural(int n)
 {
    return n == 1 ? "" : "s";
 }
@@ -3357,7 +3363,7 @@ unsigned int stb_hashlen(char *str, int len)
 
 unsigned int stb_hashptr(void *p)
 {
-   unsigned int x = (unsigned int) p;
+    unsigned int x = (unsigned int)(size_t) p;
 
    // typically lacking in low bits and high bits
    x = stb_rehash(x);
@@ -3406,7 +3412,7 @@ unsigned int stb_hash_fast(void *p, int len)
    if (len <= 0 || q == NULL) return 0;
 
    /* Main loop */
-   if (((int) q & 1) == 0) {
+    if (((int)(size_t) q & 1) == 0) {
       for (;len > 3; len -= 4) {
          unsigned int val;
          hash +=  stb__get16(q);
@@ -3732,7 +3738,7 @@ int stb_ischar(char c, char *set)
    static unsigned char (*tables)[256];
    static char ** sets = NULL;
 
-   int z = stb_perfect_hash(&p, (int) set);
+   int z = stb_perfect_hash(&p, (int)(size_t) set);
    if (z < 0) {
       int i,k,n,j,f;
       // special code that means free all existing data
@@ -3751,7 +3757,7 @@ int stb_ischar(char c, char *set)
       tables = (unsigned char (*)[256]) realloc(tables, sizeof(*tables) * k);
       memset(tables, 0, sizeof(*tables) * k);
       for (i=0; i < stb_arr_len(sets); ++i) {
-         k = stb_perfect_hash(&p, (int) sets[i]);
+          k = stb_perfect_hash(&p, (int)(size_t) sets[i]);
          assert(k >= 0);
          n = k >> 3;
          f = bit[k&7];
@@ -3759,7 +3765,7 @@ int stb_ischar(char c, char *set)
             tables[n][(unsigned char) sets[i][j]] |= f;
          }
       }
-      z = stb_perfect_hash(&p, (int) set);
+      z = stb_perfect_hash(&p, (int)(size_t) set);
    }
    return tables[z >> 3][(unsigned char) c] & bit[z & 7];
 }
@@ -4240,11 +4246,21 @@ STB_EXTERN void        stb_sdict_delete(stb_sdict *);
 STB_EXTERN void *      stb_sdict_change(stb_sdict *, char *str, void *p);
 STB_EXTERN int         stb_sdict_count(stb_sdict *d);
 
+STB_EXTERN int         stb_sdict_internal_limit(stb_sdict *d);
+STB_EXTERN char *      stb_sdict_internal_key(stb_sdict *d, int n);
+STB_EXTERN void *      stb_sdict_internal_value(stb_sdict *d, int n);
+
 #define stb_sdict_for(d,i,q,z)                                          \
-   for(i=0; i < (d)->limit ? q=(d)->table[i].k,z=(d)->table[i].v,1 : 0; ++i)    \
+   for(i=0; i < stb_sdict_internal_limit(d) ? (q=stb_sdict_internal_key(d,i),z=stb_sdict_internal_value(d,i),1) : 0; ++i)    \
       if (q==NULL||q==(void *) 1);else   // reversed makes macro friendly
 
 #ifdef STB_DEFINE
+
+// if in same translation unit, for speed, don't call accessors
+#undef stb_sdict_for
+#define stb_sdict_for(d,i,q,z)                                          \
+   for(i=0; i < (d)->limit ? (q=(d)->table[i].k,z=(d)->table[i].v,1) : 0; ++i)    \
+      if (q==NULL||q==(void *) 1);else   // reversed makes macro friendly
 
 #define STB_DEL ((void *) 1)
 #define STB_SDEL  ((char *) 1)
@@ -4263,6 +4279,19 @@ stb_define_hash_base(STB_noprefix, stb_sdict, void*arena;, stb_sdict_,stb_sdicti
 int stb_sdict_count(stb_sdict *a)
 {
    return a->count;
+}
+
+int stb_sdict_internal_limit(stb_sdict *a)
+{
+   return a->limit;
+}
+char* stb_sdict_internal_key(stb_sdict *a, int n)
+{
+   return a->table[n].k;
+}
+void* stb_sdict_internal_value(stb_sdict *a, int n)
+{
+   return a->table[n].v;
 }
 
 stb_sdict * stb_sdict_new(int use_arena)
@@ -5189,7 +5218,18 @@ int stb_filewrite(char *filename, void *data, size_t length)
 {
    FILE *f = stb_fopen(filename, "wb");
    if (f) {
-      fwrite(data, 1, length, f);
+      unsigned char *data_ptr = (unsigned char *) data;
+      size_t remaining = length;
+      while (remaining > 0) {
+         size_t len2 = remaining > 65536 ? 65536 : remaining;
+         size_t len3 = fwrite(data_ptr, 1, len2, f);
+         if (len2 != len3) {
+            fprintf(stderr, "Failed while writing %s\n", filename);
+            break;
+         }
+         remaining -= len2;
+         data_ptr += len2;
+      }
       stb_fclose(f, stb_keep_if_different);
    }
    return f != NULL;
@@ -5423,15 +5463,62 @@ typedef struct
    int   errors;
 } stb__file_data;
 
+static FILE *stb__open_temp_file(char *temp_name, char *src_name, char *mode)
+{
+   int p;
+#ifdef _MSC_VER
+   int j;
+#endif
+   FILE *f;
+   // try to generate a temporary file in the same directory
+   p = strlen(src_name)-1;
+   while (p > 0 && src_name[p] != '/' && src_name[p] != '\\'
+                && src_name[p] != ':' && src_name[p] != '~')
+      --p;
+   ++p;
+
+   memcpy(temp_name, src_name, p);
+
+   #ifdef _MSC_VER
+   // try multiple times to make a temp file... just in
+   // case some other process makes the name first
+   for (j=0; j < 32; ++j) {
+      strcpy(temp_name+p, "stmpXXXXXX");
+      if (stb_mktemp(temp_name) == NULL)
+         return 0;
+
+      f = fopen(temp_name, mode);
+      if (f != NULL)
+         break;
+   }
+   #else
+   {
+      strcpy(temp_name+p, "stmpXXXXXX");
+      #ifdef __MINGW32__
+         int fd = open(mktemp(temp_name), O_RDWR);
+      #else
+         int fd = mkstemp(temp_name);
+      #endif
+      if (fd == -1) return NULL;
+      f = fdopen(fd, mode);
+      if (f == NULL) {
+         unlink(temp_name);
+         close(fd);
+         return NULL;
+      }
+   }
+   #endif
+   return f;
+}
+
+
 FILE *  stb_fopen(char *filename, char *mode)
 {
    FILE *f;
    char name_full[4096];
    char temp_full[sizeof(name_full) + 12];
-   int p;
-#ifdef _MSC_VER
-   int j;
-#endif
+
+   // @TODO: if the file doesn't exist, we can also use the fastpath here
    if (mode[0] != 'w' && !strchr(mode, '+'))
       return stb__fopen(filename, mode);
 
@@ -5442,44 +5529,7 @@ FILE *  stb_fopen(char *filename, char *mode)
    if (stb_fullpath(name_full, sizeof(name_full), filename)==0)
       return 0;
 
-   // try to generate a temporary file in the same directory
-   p = strlen(name_full)-1;
-   while (p > 0 && name_full[p] != '/' && name_full[p] != '\\'
-                && name_full[p] != ':' && name_full[p] != '~')
-      --p;
-   ++p;
-
-   memcpy(temp_full, name_full, p);
-
-   #ifdef _MSC_VER
-   // try multiple times to make a temp file... just in
-   // case some other process makes the name first
-   for (j=0; j < 32; ++j) {
-      strcpy(temp_full+p, "stmpXXXXXX");
-      if (stb_mktemp(temp_full) == NULL)
-         return 0;
-
-      f = fopen(temp_full, mode);
-      if (f != NULL)
-         break;
-   }
-   #else
-   {
-      strcpy(temp_full+p, "stmpXXXXXX");
-      #ifdef __MINGW32__
-         int fd = open(mktemp(temp_full), O_RDWR);
-      #else
-         int fd = mkstemp(temp_full);
-      #endif
-      if (fd == -1) return NULL;
-      f = fdopen(fd, mode);
-      if (f == NULL) {
-         unlink(temp_full);
-         close(fd);
-         return NULL;
-      }
-   }
-   #endif
+   f = stb__open_temp_file(temp_full, name_full, mode);
    if (f != NULL) {
       stb__file_data *d = (stb__file_data *) malloc(sizeof(*d));
       if (!d) { assert(0);  /* NOTREACHED */fclose(f); return NULL; }
@@ -5522,20 +5572,62 @@ int     stb_fclose(FILE *f, int keep)
       }
    }
 
-   if (keep != stb_keep_no) {
-      if (stb_fexists(d->name) && remove(d->name)) {
-         // failed to delete old, so don't keep new
-         keep = stb_keep_no;
+   if (keep == stb_keep_no) {
+      remove(d->temp_name);
+   } else {
+      if (!stb_fexists(d->name)) {
+         // old file doesn't exist, so just move the new file over it
+         stb_rename(d->temp_name, d->name);
       } else {
-         if (!stb_rename(d->temp_name, d->name))
-            ok = STB_TRUE;
-         else
-            keep=stb_keep_no;
+         // don't delete the old file yet in case there are troubles! First rename it!
+         char preserved_old_file[4096];
+
+         // generate a temp filename in the same directory (also creates it, which we don't need)
+         FILE *dummy = stb__open_temp_file(preserved_old_file, d->name, "wb");
+         if (dummy != NULL) {
+            // we don't actually want the open file
+            fclose(dummy);
+
+            // discard what we just created
+            remove(preserved_old_file);  // if this fails, there's nothing we can do, and following logic handles it as best as possible anyway
+
+            // move the existing file to the preserved name
+            if (0 != stb_rename(d->name, preserved_old_file)) {  // 0 on success
+               // failed, state is:
+               //    filename  -> old file
+               //    tempname  -> new file
+               // keep tempname around so we don't lose data
+            } else {
+               //  state is:
+               //    preserved -> old file
+               //    tempname  -> new file
+               // move the new file to the old name
+               if (0 == stb_rename(d->temp_name, d->name)) {
+                  //  state is:
+                  //    preserved -> old file
+                  //    filename  -> new file
+                  ok = STB_TRUE;
+
+                  // 'filename -> new file' has always been the goal, so clean up
+                  remove(preserved_old_file); // nothing to be done if it fails
+               } else {
+                  // couldn't rename, so try renaming preserved file back
+
+                  //  state is:
+                  //    preserved -> old file
+                  //    tempname  -> new file
+                  stb_rename(preserved_old_file, d->name);
+                  // if the rename failed, there's nothing more we can do
+               }
+            }
+         } else {
+            // we couldn't get a temp filename. do this the naive way; the worst case failure here
+            // leaves the filename pointing to nothing and the new file as a tempfile
+            remove(d->name);
+            stb_rename(d->temp_name, d->name);
+         }
       }
    }
-
-   if (keep == stb_keep_no)
-      remove(d->temp_name);
 
    free(d->temp_name);
    free(d->name);
@@ -5784,6 +5876,19 @@ char *stb_strip_final_slash(char *t)
       if (*z == '\\' || *z == '/')
          if (z != t+2 || t[1] != ':') // but don't strip it if it's e.g. "c:/"
             *z = 0;
+      if (*z == '\\')
+         *z = '/'; // canonicalize to make sure it matches db
+   }
+   return t;
+}
+
+char *stb_strip_final_slash_regardless(char *t)
+{
+   if (t[0]) {
+      char *z = t + strlen(t) - 1;
+      // *z is the last character
+      if (*z == '\\' || *z == '/')
+         *z = 0;
       if (*z == '\\')
          *z = '/'; // canonicalize to make sure it matches db
    }
@@ -6746,14 +6851,16 @@ typedef struct
    char   * path;           // full path from passed-in root
    time_t   last_modified;
    int      num_files;
+   int      flag;
 } stb_dirtree_dir;
 
 typedef struct
 {
    char *name;              // name relative to path
    int   dir;               // index into dirs[] array
-   unsigned long size;      // size, max 4GB
+   stb_int64 size;      // size, max 4GB
    time_t   last_modified;
+   int      flag;
 } stb_dirtree_file;
 
 typedef struct
@@ -6781,6 +6888,14 @@ extern stb_dirtree *stb_dirtree_get_with_file ( char *dir, char *cache_file);
 // do a call to stb_dirtree_get() with the same cache file at about the same
 // time, but I _think_ it might just work.
 
+// i needed to build an identical data structure representing the state of
+// a mirrored copy WITHOUT bothering to rescan it (i.e. we're mirroring to
+// it WITHOUT scanning it, e.g. it's over the net), so this requires access
+// to all of the innards.
+extern void stb_dirtree_db_add_dir(stb_dirtree *active, char *path, time_t last);
+extern void stb_dirtree_db_add_file(stb_dirtree *active, char *name, int dir, stb_int64 size, time_t last);
+extern void stb_dirtree_db_read(stb_dirtree *target, char *filename, char *dir);
+extern void stb_dirtree_db_write(stb_dirtree *target, char *filename, char *dir);
 
 #ifdef STB_DEFINE
 static void stb__dirtree_add_dir(char *path, time_t last, stb_dirtree *active)
@@ -6792,7 +6907,7 @@ static void stb__dirtree_add_dir(char *path, time_t last, stb_dirtree *active)
    stb_arr_push(active->dirs, d);
 }
 
-static void stb__dirtree_add_file(char *name, int dir, unsigned long size, time_t last, stb_dirtree *active)
+static void stb__dirtree_add_file(char *name, int dir, stb_int64 size, time_t last, stb_dirtree *active)
 {
    stb_dirtree_file f;
    f.dir = dir;
@@ -6803,23 +6918,25 @@ static void stb__dirtree_add_file(char *name, int dir, unsigned long size, time_
    stb_arr_push(active->files, f);
 }
 
-static char stb__signature[12] = { 's', 'T', 'b', 'D', 'i', 'R', 't', 'R', 'e', 'E', '0', '1' };
+// version 02 supports > 4GB files
+static char stb__signature[12] = { 's', 'T', 'b', 'D', 'i', 'R', 't', 'R', 'e', 'E', '0', '2' };
 
 static void stb__dirtree_save_db(char *filename, stb_dirtree *data, char *root)
 {
    int i, num_dirs_final=0, num_files_final;
+   char *info = root ? root : "";
    int *remap;
    FILE *f = fopen(filename, "wb");
    if (!f) return;
 
    fwrite(stb__signature, sizeof(stb__signature), 1, f);
-   fwrite(root, strlen(root)+1, 1, f);
+   fwrite(info, strlen(info)+1, 1, f);
    // need to be slightly tricky and not write out NULLed directories, nor the root
 
    // build remapping table of all dirs we'll be writing out
    remap = (int *) malloc(sizeof(remap[0]) * stb_arr_len(data->dirs));
    for (i=0; i < stb_arr_len(data->dirs); ++i) {
-      if (data->dirs[i].path == NULL || 0==stb_stricmp(data->dirs[i].path, root)) {
+      if (data->dirs[i].path == NULL || (root && 0==stb_stricmp(data->dirs[i].path, root))) {
          remap[i] = -1;
       } else {
          remap[i] = num_dirs_final++;
@@ -6836,14 +6953,14 @@ static void stb__dirtree_save_db(char *filename, stb_dirtree *data, char *root)
 
    num_files_final = 0;
    for (i=0; i < stb_arr_len(data->files); ++i)
-      if (remap[data->files[i].dir] >= 0)
+      if (remap[data->files[i].dir] >= 0 && data->files[i].name)
          ++num_files_final;
 
    fwrite(&num_files_final, 4, 1, f);
    for (i=0; i < stb_arr_len(data->files); ++i) {
-      if (remap[data->files[i].dir] >= 0) {
+      if (remap[data->files[i].dir] >= 0 && data->files[i].name) {
          stb_fput_ranged(f, remap[data->files[i].dir], 0, num_dirs_final);
-         stb_fput_varlenu(f, data->files[i].size);
+         stb_fput_varlen64(f, data->files[i].size);
          fwrite(&data->files[i].last_modified, 4, 1, f);
          stb_fput_string(f, data->files[i].name);
       }
@@ -6880,7 +6997,7 @@ static void stb__dirtree_load_db(char *filename, stb_dirtree *data, char *dir)
    stb_arr_setlen(data->files, n);
    for (i=0; i < stb_arr_len(data->files); ++i) {
       data->files[i].dir  = stb_fget_ranged(f, 0, stb_arr_len(data->dirs));
-      data->files[i].size = stb_fget_varlenu(f);
+      data->files[i].size = stb_fget_varlen64(f);
       fread(&data->files[i].last_modified, 4, 1, f);
       data->files[i].name = stb_fget_string(f, data->string_pool);
       if (data->files[i].name == NULL) goto bail;
@@ -6894,6 +7011,7 @@ static void stb__dirtree_load_db(char *filename, stb_dirtree *data, char *dir)
    fclose(f);
 }
 
+static int stb__dircount, stb__dircount_mask, stb__showfile;
 static void stb__dirtree_scandir(char *path, time_t last_time, stb_dirtree *active)
 {
    // this is dumb depth first; theoretically it might be faster
@@ -6902,52 +7020,75 @@ static void stb__dirtree_scandir(char *path, time_t last_time, stb_dirtree *acti
 
    int n;
 
-   struct _wfinddata_t c_file;
-   #ifdef STB_PTR64
-   intptr_t hFile;
-   #else
+   struct _wfinddatai64_t c_file;
    long hFile;
-   #endif
    stb__wchar full_path[1024];
    int has_slash;
+   if (stb__showfile) printf("<");
 
    has_slash = (path[0] && path[strlen(path)-1] == '/'); 
+
+   // @TODO: do this concatenation without using swprintf to avoid this mess:
+#if defined(_MSC_VER) && _MSC_VER < 1400
    if (has_slash)
-      swprintf((wchar_t *)full_path, L"%s*", stb__from_utf8(path));
+      swprintf(full_path, L"%s*", stb__from_utf8(path));
    else
-      swprintf((wchar_t *)full_path, L"%s/*", stb__from_utf8(path));
+      swprintf(full_path, L"%s/*", stb__from_utf8(path));
+#else
+   if (has_slash)
+      swprintf(full_path, 1024, L"%s*", stb__from_utf8(path));
+   else
+      swprintf(full_path, 1024, L"%s/*", stb__from_utf8(path));
+#endif
 
    // it's possible this directory is already present: that means it was in the
    // cache, but its parent wasn't... in that case, we're done with it
+   if (stb__showfile) printf("C[%d]", stb_arr_len(active->dirs));
    for (n=0; n < stb_arr_len(active->dirs); ++n)
-      if (0 == stb_stricmp(active->dirs[n].path, path))
+      if (0 == stb_stricmp(active->dirs[n].path, path)) {
+         if (stb__showfile) printf("D");
          return;
+      }
+   if (stb__showfile) printf("E");
 
    // otherwise, we need to add it
    stb__dirtree_add_dir(path, last_time, active);
    n = stb_arr_lastn(active->dirs);
 
-   if( (hFile = _wfindfirst((const wchar_t *)full_path, &c_file )) != -1L ) {
+   if (stb__showfile) printf("[");
+   if( (hFile = _wfindfirsti64( full_path, &c_file )) != -1L ) {
       do {
+         if (stb__showfile) printf(")");
          if (c_file.attrib & _A_SUBDIR) {
             // ignore subdirectories starting with '.', e.g. "." and ".."
             if (c_file.name[0] != '.') {
                char *new_path = (char *) full_path;
-               char *temp = stb__to_utf8((stb__wchar *)c_file.name);
+               char *temp = stb__to_utf8(c_file.name);
+
                if (has_slash)
                   sprintf(new_path, "%s%s", path, temp);
                else
                   sprintf(new_path, "%s/%s", path, temp);
+
+               if (stb__dircount_mask) {
+                  ++stb__dircount;
+                  if (!(stb__dircount & stb__dircount_mask)) {
+                     printf("%s\r", new_path);
+                  }
+               }
+
                stb__dirtree_scandir(new_path, c_file.time_write, active);
             }
          } else {
-            char *temp = stb__to_utf8((stb__wchar *)c_file.name);
+            char *temp = stb__to_utf8(c_file.name);
             stb__dirtree_add_file(temp, n, c_file.size, c_file.time_write, active);
          }
-      } while( _wfindnext( hFile, &c_file ) == 0 );
-
+         if (stb__showfile) printf("(");
+      } while( _wfindnexti64( hFile, &c_file ) == 0 );
+      if (stb__showfile) printf("]");
       _findclose( hFile );
    }
+   if (stb__showfile) printf(">\n");
 }
 
 // scan the database and see if it's all valid
@@ -6963,13 +7104,21 @@ static int stb__dirtree_update_db(stb_dirtree *db, stb_dirtree *active)
 
    for (i=0; i < stb_arr_len(db->dirs); ++i) {
       struct _stat info;
+      if (stb__dircount_mask) {
+         ++stb__dircount;
+         if (!(stb__dircount & stb__dircount_mask)) {
+            printf(".");
+         }
+      }
       if (0 == _stat(db->dirs[i].path, &info)) {
          if (info.st_mode & _S_IFDIR) {
             // it's still a directory, as expected
-            if (info.st_mtime > db->dirs[i].last_modified) {
+            int n = abs(info.st_mtime - db->dirs[i].last_modified);
+            if (n > 1 && n != 3600) {  // the 3600 is a hack because sometimes this jumps for no apparent reason, even when no time zone or DST issues are at play
                // it's changed! force a rescan
                // we don't want to scan it until we've stat()d its
                // subdirs, though, so we queue it
+               if (stb__showfile) printf("Changed: %s - %08x:%08x\n", db->dirs[i].path, db->dirs[i].last_modified, info.st_mtime);
                stb_arr_push(rescan, i);
                // update the last_mod time
                db->dirs[i].last_modified = info.st_mtime;
@@ -7047,6 +7196,8 @@ stb_dirtree *stb_dirtree_get_with_file(char *dir, char *cache_file)
 
    if (cache_file != NULL)
       stb__dirtree_load_db(cache_file, &db, stripped_dir);
+   else if (stb__showfile)
+      printf("No cache file\n");
 
    active.files = NULL;
    active.dirs = NULL;
@@ -7060,6 +7211,9 @@ stb_dirtree *stb_dirtree_get_with_file(char *dir, char *cache_file)
    prev_dir_count = stb_arr_len(active.dirs);  // record how many directories we've seen
 
    stb__dirtree_scandir(stripped_dir, 0, &active);  // no last_modified time available for root
+
+   if (stb__dircount_mask)
+      printf("                                                                              \r");
 
    // done with the DB; write it back out if any changes, i.e. either
    //      1. any inconsistency found between cached information and actual disk
@@ -7089,7 +7243,7 @@ stb_dirtree *stb_dirtree_get_dir(char *dir, char *cache_dir)
    stb_sha1(sha, (unsigned char *) dir_lower, strlen(dir_lower));
    strcpy(cache_file, cache_dir);
    s = cache_file + strlen(cache_file);
-   if (s[-1] != '/' && s[-1] != '\\') *s++ = '/';
+   if (s[-1] != '//' && s[-1] != '\\') *s++ = '/';
    strcpy(s, "dirtree_");
    s += strlen(s);
    for (i=0; i < 8; ++i) {
@@ -7123,6 +7277,32 @@ void stb_dirtree_free(stb_dirtree *d)
    stb__dirtree_free_raw(d);
    free(d);
 }
+
+void stb_dirtree_db_add_dir(stb_dirtree *active, char *path, time_t last)
+{
+   stb__dirtree_add_dir(path, last, active);
+}
+
+void stb_dirtree_db_add_file(stb_dirtree *active, char *name, int dir, stb_int64 size, time_t last)
+{
+   stb__dirtree_add_file(name, dir, size, last, active);
+}
+
+void stb_dirtree_db_read(stb_dirtree *target, char *filename, char *dir)
+{
+   char *s = stb_strip_final_slash(strdup(dir));
+   target->dirs = 0;
+   target->files = 0;
+   target->string_pool = 0;
+   stb__dirtree_load_db(filename, target, s);
+   free(s);
+}
+
+void stb_dirtree_db_write(stb_dirtree *target, char *filename, char *dir)
+{
+   stb__dirtree_save_db(filename, target, 0); // don't strip out any directories
+}
+
 #endif // STB_DEFINE
 
 #endif // _WIN32
@@ -7527,14 +7707,14 @@ static stb_ps_hash *stb_ps_makehash(int size, int old_size, void **old_data)
    h->any_offset = 0;
    memset(h->table, 0, size * sizeof(h->table[0]));
    for (i=0; i < old_size; ++i)
-      if (!stb_ps_empty(old_data[i]))
+        if (!stb_ps_empty((size_t)old_data[i]))
          stb_ps_add(EncodeHash(h), old_data[i]);
    return h;
 }
 
 void stb_ps_delete(stb_ps *ps)
 {
-   switch (3 & (int) ps) {
+    switch (3 & (int)(size_t) ps) {
       case STB_ps_direct: break;
       case STB_ps_bucket: stb_bucket_free(GetBucket(ps)); break;
       case STB_ps_array : free(GetArray(ps)); break;
@@ -7546,7 +7726,7 @@ stb_ps *stb_ps_copy(stb_ps *ps)
 {
    int i;
    // not a switch: order based on expected performance/power-law distribution
-   switch (3 & (int) ps) {
+    switch (3 & (int)(size_t) ps) {
       case STB_ps_direct: return ps;
       case STB_ps_bucket: {
          stb_ps_bucket *n = (stb_ps_bucket *) malloc(sizeof(*n));
@@ -7573,8 +7753,8 @@ stb_ps *stb_ps_copy(stb_ps *ps)
 
 int stb_ps_find(stb_ps *ps, void *value)
 {
-   int i, code = 3 & (int) ps;
-    assert((3 & (int) value) == STB_ps_direct);
+    int i, code = 3 & (int)(size_t) ps;
+    assert((3 & (int)(size_t) value) == STB_ps_direct);
    assert(stb_ps_fastlist_valid(value));
    // not a switch: order based on expected performance/power-law distribution
    if (code == STB_ps_direct)
@@ -7615,11 +7795,11 @@ stb_ps *  stb_ps_add   (stb_ps *ps, void *value)
    assert(!stb_ps_find(ps,value));
    #endif
    if (value == NULL) return ps; // ignore NULL adds to avoid bad breakage
-   assert((3 & (int) value) == STB_ps_direct);
+    assert((3 & (int)(size_t) value) == STB_ps_direct);
    assert(stb_ps_fastlist_valid(value));
    assert(value != STB_DEL);     // STB_DEL is less likely
 
-   switch (3 & (int) ps) {
+    switch (3 & (int)(size_t) ps) {
       case STB_ps_direct:
          if (ps == NULL) return (stb_ps *) value;
          return EncodeBucket(stb_bucket_create2(ps,value));
@@ -7668,11 +7848,11 @@ stb_ps *  stb_ps_add   (stb_ps *ps, void *value)
          stb_uint32 n = hash & h->mask;
          void **t = h->table;
          // find first NULL or STB_DEL entry
-         if (!stb_ps_empty(t[n])) {
+          if (!stb_ps_empty((size_t)t[n])) {
             stb_uint32 s = stb_rehash(hash) | 1;
             do {
                n = (n + s) & h->mask;
-            } while (!stb_ps_empty(t[n]));
+            } while (!stb_ps_empty((size_t)t[n]));
          }
          if (t[n] == STB_DEL)
             -- h->count_deletes;
@@ -7699,9 +7879,9 @@ stb_ps *stb_ps_remove(stb_ps *ps, void *value)
    #ifdef STB_DEBUG
    assert(stb_ps_find(ps, value));
    #endif
-   assert((3 & (int) value) == STB_ps_direct);
+    assert((3 & (int)(size_t) value) == STB_ps_direct);
    if (value == NULL) return ps; // ignore NULL removes to avoid bad breakage
-   switch (3 & (int) ps) {
+    switch (3 & (int)(size_t) ps) {
       case STB_ps_direct:
          return ps == value ? NULL : ps;
       case STB_ps_bucket: {
@@ -7760,7 +7940,7 @@ stb_ps *stb_ps_remove(stb_ps *ps, void *value)
                stb_ps_array *a = (stb_ps_array *) malloc(sizeof(*a) + (n-1) * sizeof(a->p[0]));
                int i,j=0;
                for (i=0; i < h->size; ++i)
-                  if (!stb_ps_empty(t[i]))
+                    if (!stb_ps_empty((size_t)t[i]))
                      a->p[j++] = t[i];
                assert(j == h->count);
                a->count = j;
@@ -7782,7 +7962,7 @@ stb_ps *stb_ps_remove(stb_ps *ps, void *value)
 stb_ps *stb_ps_remove_any(stb_ps *ps, void **value)
 {
    assert(ps != NULL);
-   switch (3 & (int) ps) {
+    switch (3 & (int)(size_t) ps) {
       case STB_ps_direct:
          *value = ps;
          return NULL;
@@ -7815,7 +7995,7 @@ stb_ps *stb_ps_remove_any(stb_ps *ps, void **value)
          stb_ps_hash *h = GetHash(ps);
          void **t = h->table;
          stb_uint32 n = h->any_offset;
-         while (stb_ps_empty(t[n]))
+          while (stb_ps_empty((size_t)t[n]))
             n = (n + 1) & h->mask;
          *value = t[n];
          h->any_offset = (n+1) & h->mask;
@@ -7836,7 +8016,7 @@ void ** stb_ps_getlist(stb_ps *ps, int *count)
 {
    int i,n=0;
    void **p = NULL;
-   switch (3 & (int) ps) {
+    switch (3 & (int)(size_t) ps) {
       case STB_ps_direct:
          if (ps == NULL) { *count = 0; return NULL; }
          p = (void **) malloc(sizeof(*p) * 1);
@@ -7862,7 +8042,7 @@ void ** stb_ps_getlist(stb_ps *ps, int *count)
          stb_ps_hash *h = GetHash(ps);
          p = (void **) malloc(sizeof(*p) * h->count);
          for (i=0; i < h->size; ++i)
-            if (!stb_ps_empty(h->table[i]))
+              if (!stb_ps_empty((size_t)h->table[i]))
                p[n++] = h->table[i];
          break;
       }
@@ -7874,7 +8054,7 @@ void ** stb_ps_getlist(stb_ps *ps, int *count)
 int stb_ps_writelist(stb_ps *ps, void **list, int size )
 {
    int i,n=0;
-   switch (3 & (int) ps) {
+    switch (3 & (int)(size_t) ps) {
       case STB_ps_direct:
          if (ps == NULL || size <= 0) return 0;
          list[0] = ps;
@@ -7896,7 +8076,7 @@ int stb_ps_writelist(stb_ps *ps, void **list, int size )
          stb_ps_hash *h = GetHash(ps);
          if (size <= 0) return 0;
          for (i=0; i < h->count; ++i) {
-            if (!stb_ps_empty(h->table[i])) {
+             if (!stb_ps_empty((size_t)h->table[i])) {
                list[n++] = h->table[i];
                if (n == size) break;
             }
@@ -7910,7 +8090,7 @@ int stb_ps_writelist(stb_ps *ps, void **list, int size )
 int stb_ps_enum(stb_ps *ps, void *data, int (*func)(void *value, void *data))
 {
    int i;
-   switch (3 & (int) ps) {
+    switch (3 & (int)(size_t) ps) {
       case STB_ps_direct:
          if (ps == NULL) return STB_TRUE;
          return func(ps, data);
@@ -7932,7 +8112,7 @@ int stb_ps_enum(stb_ps *ps, void *data, int (*func)(void *value, void *data))
       case STB_ps_hash: {
          stb_ps_hash *h = GetHash(ps);
          for (i=0; i < h->count; ++i)
-            if (!stb_ps_empty(h->table[i]))
+              if (!stb_ps_empty((size_t)h->table[i]))
                if (!func(h->table[i], data))
                   return STB_FALSE;
          return STB_TRUE;
@@ -7943,7 +8123,7 @@ int stb_ps_enum(stb_ps *ps, void *data, int (*func)(void *value, void *data))
 
 int stb_ps_count (stb_ps *ps)
 {
-   switch (3 & (int) ps) {
+    switch (3 & (int)(size_t) ps) {
       case STB_ps_direct:
          return ps != NULL;
       case STB_ps_bucket: {
@@ -7967,7 +8147,7 @@ void ** stb_ps_fastlist(stb_ps *ps, int *count)
 {
    static void *storage;
 
-   switch (3 & (int) ps) {
+    switch (3 & (int)(size_t) ps) {
       case STB_ps_direct:
          if (ps == NULL) { *count = 0; return NULL; }
          storage = ps;
@@ -9014,7 +9194,7 @@ static void stb__add_epsilon(stb_matcher *matcher, int from, int to)
 
 static void stb__add_edge(stb_matcher *matcher, int from, int to, int type)
 {
-   stb_nfa_edge z = { type, to };
+    stb_nfa_edge z = { (stb_int16)type, (stb_uint16)to };
    if (matcher->nodes[from].out == NULL)
       stb_arr_malloc((void **) &matcher->nodes[from].out, matcher);
    stb_arr_push(matcher->nodes[from].out, z);
@@ -9727,7 +9907,7 @@ int stb_regex(char *regex, char *str)
    static char        ** regexps;
    static char        ** regexp_cache;
    static unsigned short *mapping;
-   int z = stb_perfect_hash(&p, (int) regex);
+    int z = stb_perfect_hash(&p, (int)(size_t) regex);
    if (z >= 0) {
       if (strcmp(regex, regexp_cache[(int) mapping[z]])) {
          int i = mapping[z];
@@ -9758,8 +9938,8 @@ int stb_regex(char *regex, char *str)
       n = stb_perfect_create(&p, (unsigned int *) (char **) regexps, stb_arr_len(regexps));
       mapping = (unsigned short *) realloc(mapping, n * sizeof(*mapping));
       for (i=0; i < stb_arr_len(regexps); ++i)
-         mapping[stb_perfect_hash(&p, (int) regexps[i])] = i;
-      z = stb_perfect_hash(&p, (int) regex);
+          mapping[stb_perfect_hash(&p, (int)(size_t) regexps[i])] = i;
+      z = stb_perfect_hash(&p, (int)(size_t) regex);
    }
    return stb_matcher_find(matchers[(int) mapping[z]], str);
 }
@@ -10253,7 +10433,7 @@ static void stb__write(unsigned char v)
    ++stb__outbytes;
 }
 
-#define stb_out(v)    (stb__out ? *stb__out++ = (stb_uchar) (v) : stb__write((stb_uchar) (v)))
+#define stb_out(v)    (stb__out ? (void)(*stb__out++ = (stb_uchar) (v)) : stb__write((stb_uchar) (v)))
 
 static void stb_out2(stb_uint v)
 {
@@ -10516,7 +10696,8 @@ static size_t stb_out_backpatch_id(void)
 
 static void stb_out_backpatch(size_t id, stb_uint value)
 {
-   stb_uchar data[4] = { value >> 24, value >> 16, value >> 8, value };
+    
+    stb_uchar data[4] = { (stb_uchar)(value >> 24), (stb_uchar)(value >> 16), (stb_uchar)(value >> 8), (stb_uchar)(value) };
    if (stb__out) {
       memcpy((void *) id, data, 4);
    } else {
@@ -14176,10 +14357,49 @@ void stua_run_script(char *s)
    stua_gc(1);
 }
 #endif // STB_DEFINE
-
 #endif // STB_STUA
-
 
 #undef STB_EXTERN
 #endif // STB_INCLUDE_STB_H
 
+/*
+------------------------------------------------------------------------------
+This software is available under 2 licenses -- choose whichever you prefer.
+------------------------------------------------------------------------------
+ALTERNATIVE A - MIT License
+Copyright (c) 2017 Sean Barrett
+Permission is hereby granted, free of charge, to any person obtaining a copy of 
+this software and associated documentation files (the "Software"), to deal in 
+the Software without restriction, including without limitation the rights to 
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
+of the Software, and to permit persons to whom the Software is furnished to do 
+so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all 
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+SOFTWARE.
+------------------------------------------------------------------------------
+ALTERNATIVE B - Public Domain (www.unlicense.org)
+This is free and unencumbered software released into the public domain.
+Anyone is free to copy, modify, publish, use, compile, sell, or distribute this 
+software, either in source code form or as a compiled binary, for any purpose, 
+commercial or non-commercial, and by any means.
+In jurisdictions that recognize copyright laws, the author or authors of this 
+software dedicate any and all copyright interest in the software to the public 
+domain. We make this dedication for the benefit of the public at large and to 
+the detriment of our heirs and successors. We intend this dedication to be an 
+overt act of relinquishment in perpetuity of all present and future rights to 
+this software under copyright law.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN 
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION 
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+------------------------------------------------------------------------------
+*/
