@@ -24,7 +24,11 @@ GBuffer::GBuffer(const GLuint width, const GLuint height) :
     , useNormalTexture(false)
     , negativeNormals(false)
     , enableBoundingBox(true)
+    , flipX(false)
+    , flipY(false)
+    , flipZ(false)
     , modelRotationAxis(glm::vec3(0.0f, 1.0f, 0.0f))
+    , modelRotation(glm::vec3(-90.0f, 0.0f, -90.0f))
     , modelPosition(glm::vec3(0.0f))
     , modelScale(glm::vec3(0.1f))
     , albedoColor(glm::vec3(1.0f))
@@ -145,8 +149,21 @@ void GBuffer::draw(Camera camera)
 
     const GLfloat rotationAngle = glfwGetTime() / 5.0f * modelRotationSpeed;
     auto model = glm::mat4(1.0);
+    if(flipX)
+        model[0][0] = -model[0][0];
+    if(flipY)
+        model[1][1] = -model[1][1];
+    if(flipZ)
+        model[2][2] = -model[2][2];
+
+    auto rotX = glm::rotate(glm::mat4(1.0), glm::radians(modelRotation.x), glm::vec3(1, 0, 0));
+    auto rotY = glm::rotate(glm::mat4(1.0), glm::radians(modelRotation.y), glm::vec3(0, 1, 0));
+    auto rotZ = glm::rotate(glm::mat4(1.0), glm::radians(modelRotation.z), glm::vec3(0, 0, 1));
+
+    auto rot = rotX * rotY * rotZ;
     
     model = glm::rotate(model, rotationAngle, modelRotationAxis);
+    model *= rot;
     model = glm::translate(model, -objectModel->getCenter()*modelScale);
     model = glm::scale(model, modelScale);
 

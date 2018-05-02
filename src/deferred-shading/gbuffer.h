@@ -47,9 +47,15 @@ public:
     bool negativeNormals;
     bool enableBoundingBox;
 
+    // flip axes
+    bool flipX;
+    bool flipY;
+    bool flipZ;
+
     glm::vec3 modelRotationAxis;
     glm::vec3 modelPosition;
     glm::vec3 modelScale;
+    glm::vec3 modelRotation;
     glm::vec3 albedoColor;
 
     void loadModel(const std::string path, const glm::vec3 scale);

@@ -796,7 +796,7 @@ void imGuiSetup()
                     }
                 }
                 
-                ImGui::SliderFloat("Theta", &theta, -glm::pi<float>(), glm::pi<float>());
+                ImGui::SliderFloat("Theta", &theta, -glm::pi<float>()/2.f, glm::pi<float>()/2.f);
                 ImGui::SliderFloat("Rho", &rho, -glm::pi<float>()*.5f, glm::pi<float>()*.5f);
                 ImGui::SliderFloat("Radius", &radius, 1.0, 10.f);
                 
@@ -818,7 +818,11 @@ void imGuiSetup()
         if (ImGui::TreeNode("Object"))
         {
             ImGui::Checkbox("Enable Boundingbox", &gBuffer.enableBoundingBox);
+            ImGui::Checkbox("Flip x-axis", &gBuffer.flipX);
+            ImGui::Checkbox("Flip y-axis", &gBuffer.flipY);
+            ImGui::Checkbox("Flip z-axis", &gBuffer.flipZ);
             ImGui::SliderFloat3("Position", (float*)&gBuffer.modelPosition, -5.0f, 5.0f);
+            ImGui::SliderFloat3("Rotation", (float*)&gBuffer.modelRotation, -90.0f, 90.f);
             ImGui::SliderFloat("Rotation Speed", &gBuffer.modelRotationSpeed, 0.0f, 50.0f);
             ImGui::SliderFloat3("Rotation Axis", (float*)&gBuffer.modelRotationAxis, 0.0f, 1.0f);
 
