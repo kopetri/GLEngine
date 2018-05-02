@@ -182,7 +182,10 @@ std::vector<bool> invertNormal = {
 */
 
 int frame = -1;
-int imageCount = 50;
+int h_views = 65;
+int v_views = 5;
+int curr_h, curr_v = 0;
+int imageCount = h_views * v_views;
 int useEnvmapIndex = 0;
 bool recording = false;
 bool takeSnapShot = false;
@@ -191,6 +194,7 @@ bool renderSegmentation = false;
 int recorded_frame = 0;
 bool use_unique_output_index = false;
 bool iterate_over_skyboxes = false;
+bool random_views = true;
 
 bool targetRendered = false;
 bool labelRendered = false;
@@ -405,6 +409,8 @@ int main(int argc, char* argv[])
             if (frame < 0 || frame >= imageCount)
             {
                 frame = 0;
+                curr_h = 0;
+                curr_v = 0;
                 renderSegmentation = false;
                 prepareModel();
             }
@@ -780,6 +786,7 @@ void imGuiSetup()
             ImGui::SliderFloat("Shutter Speed", &postprocess.cameraShutterSpeed, 0.001f, 1.0f);
             ImGui::SliderFloat("ISO", &postprocess.cameraISO, 100.0f, 3200.0f);
             ImGui::Checkbox("Orbitting Camera", &isOrbitCamera);
+            ImGui::Checkbox("Random views", &random_views);
             if(isOrbitCamera)
             {
                 ImGui::Checkbox("Unique Output Index", &use_unique_output_index);
@@ -1043,12 +1050,31 @@ float random(float min, float max)
 
 void updatePose()
 {
-    theta = random(-glm::pi<float>(), glm::pi<float>());
-    rho = random(-glm::pi<float>(), 0);
+    if (random_views) {
+        theta = random(-glm::pi<float>() / 2.0f, glm::pi<float>() / 2.0f);
+        rho = random(-glm::pi<float>(), 0);
+        radius = random(1.7f, 3.5f);
+    }
+    else {
+        if (curr_h >= h_views)
+        {
+            curr_h = 0;
+            curr_v++;
+        }
+        if (curr_v >= v_views)
+        {
+            curr_v = 0;
+        }
+
+        theta = glm::mix(-glm::pi<float>() / 2.0f, glm::pi<float>() / 2.0f, static_cast<float>(curr_h) / static_cast<float>(h_views-1));
+        rho = glm::mix(-glm::pi<float>()*.5f, glm::pi<float>()*.5f, static_cast<float>(curr_v) / static_cast<float>(v_views-1));
+
+        curr_h++;
+    }
     lighting.lightDirectionalDirection1.x = -5; //random(-5.f, 5.f);
     lighting.lightDirectionalDirection1.y = -5; //random(-5.f, 5.f);
     lighting.lightDirectionalDirection1.z = 5; //random(-5.f, 5.f);
-    radius = random(1.7f, 3.5f);
+    
 }
 
 void captureFrame(std::string output_path)
