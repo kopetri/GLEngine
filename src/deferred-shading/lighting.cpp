@@ -69,6 +69,7 @@ void Lighting::setup()
     glUniform1i(glGetUniformLocation(lightingBRDFShader->Program, "envMapPrefilter"), 7);
     glUniform1i(glGetUniformLocation(lightingBRDFShader->Program, "envMapLUT"), 8);
     glUniform1i(glGetUniformLocation(lightingBRDFShader->Program, "backgroundTexture"), 9);
+    glUniform1i(glGetUniformLocation(lightingBRDFShader->Program, "gBoundingBox"), 10);
 
     //----------------
     // Light source(s)
@@ -109,6 +110,8 @@ void Lighting::draw(Camera &camera, GBuffer &gBuffer, SSAO &ssao, Skybox &skybox
     }
     glActiveTexture(GL_TEXTURE9);
     backgroundTexture->useTexture();
+    glActiveTexture(GL_TEXTURE10);
+    glBindTexture(GL_TEXTURE_2D, gBuffer.gBoundingBox);
 
     if (!segmentation) {
         lightPoint1->setLightPosition(lightPointPosition1);

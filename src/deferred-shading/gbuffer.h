@@ -33,6 +33,7 @@ public:
     GLuint gAlbedo;
     GLuint gEffects;
     GLuint gNormal;
+    GLuint gBoundingBox;
     GLuint zBuffer;
 
     GLfloat modelRotationSpeed;
@@ -44,6 +45,7 @@ public:
     bool useMetalnessTexture;
     bool useNormalTexture;
     bool negativeNormals;
+    bool enableBoundingBox;
 
     glm::vec3 modelRotationAxis;
     glm::vec3 modelPosition;
@@ -71,4 +73,5 @@ private:
 
     // model
     std::shared_ptr<Model> objectModel;
+    std::shared_ptr<BoundingBox> boundingBox;
 };

@@ -817,6 +817,7 @@ void imGuiSetup()
 
         if (ImGui::TreeNode("Object"))
         {
+            ImGui::Checkbox("Enable Boundingbox", &gBuffer.enableBoundingBox);
             ImGui::SliderFloat3("Position", (float*)&gBuffer.modelPosition, -5.0f, 5.0f);
             ImGui::SliderFloat("Rotation Speed", &gBuffer.modelRotationSpeed, 0.0f, 50.0f);
             ImGui::SliderFloat3("Rotation Axis", (float*)&gBuffer.modelRotationAxis, 0.0f, 1.0f);

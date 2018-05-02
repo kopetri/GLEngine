@@ -23,6 +23,7 @@ GBuffer::GBuffer(const GLuint width, const GLuint height) :
     , useMetalnessTexture(false)
     , useNormalTexture(false)
     , negativeNormals(false)
+    , enableBoundingBox(true)
     , modelRotationAxis(glm::vec3(0.0f, 1.0f, 0.0f))
     , modelPosition(glm::vec3(0.0f))
     , modelScale(glm::vec3(0.1f))
@@ -60,12 +61,15 @@ void GBuffer::setup()
     objectModel = std::make_shared<Model>();
     objectModel->loadModel("shaderball/shaderball.obj");
 
+    // init Bounding Box
+    boundingBox = std::make_shared<BoundingBox>();
+
     // init buffers
     glGenFramebuffers(1, &gBuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
 
     // Define the COLOR_ATTACHMENTS for the G-Buffer
-    std::vector<GLuint> attachments = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
+    std::vector<GLuint> attachments = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4 };
 
     // Position
     glGenTextures(1, &gPosition);
@@ -101,6 +105,14 @@ void GBuffer::setup()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, attachments[3], GL_TEXTURE_2D, gEffects, 0);
 
+    // Bounding Box
+    glGenTextures(1, &gBoundingBox);
+    glBindTexture(GL_TEXTURE_2D, gBoundingBox);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, attachments[4], GL_TEXTURE_2D, gBoundingBox, 0);
+
     glDrawBuffers(attachments.size(), attachments.data());
 
     // Z-Buffer
@@ -133,8 +145,9 @@ void GBuffer::draw(Camera camera)
 
     const GLfloat rotationAngle = glfwGetTime() / 5.0f * modelRotationSpeed;
     auto model = glm::mat4(1.0);
-    model = glm::translate(model, modelPosition);
+    
     model = glm::rotate(model, rotationAngle, modelRotationAxis);
+    model = glm::translate(model, -objectModel->getCenter()*modelScale);
     model = glm::scale(model, modelScale);
 
     projViewModel = projection * view * model;
@@ -150,6 +163,7 @@ void GBuffer::draw(Camera camera)
     glUniform1i(glGetUniformLocation(shader->Program, "useMetalnessTexture"), useMetalnessTexture);
     glUniform1i(glGetUniformLocation(shader->Program, "useNormalTexture"), useNormalTexture);
     glUniform1i(glGetUniformLocation(shader->Program, "negativeNormals"), negativeNormals);
+    glUniform1i(glGetUniformLocation(shader->Program, "enableBoundingBox"), enableBoundingBox);
 
 
     // Material
@@ -172,6 +186,10 @@ void GBuffer::draw(Camera camera)
     glUniform1i(glGetUniformLocation(shader->Program, "texAO"), 4);
 
     objectModel->Draw();
+    if (enableBoundingBox) {
+        boundingBox->setDimensions(objectModel->getCenter(), objectModel->getSize());
+        boundingBox->Draw(projViewModel);
+    }
 
     prevProjViewModel = projViewModel;
 

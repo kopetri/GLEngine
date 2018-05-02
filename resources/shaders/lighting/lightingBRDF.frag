@@ -34,6 +34,7 @@ uniform samplerCube envMapIrradiance;
 uniform samplerCube envMapPrefilter;
 uniform sampler2D envMapLUT;
 uniform sampler2D backgroundTexture;
+uniform sampler2D gBoundingBox;
 
 uniform int gBufferView;
 uniform bool pointMode;
@@ -67,6 +68,12 @@ void main()
     // Retrieve G-Buffer informations
     vec3 viewPos = texture(gPosition, TexCoords).rgb;
     float depth = texture(gPosition, TexCoords).a;
+    float bb = texture(gBoundingBox, TexCoords).a;
+    
+    if(bb == 0.0) {
+        colorOutput = vec4(0,1,0,1);
+        return;
+    }
 
     if(segmentationEnabled) {
         if(depth == 1.0f)

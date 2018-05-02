@@ -74,17 +74,13 @@ void BoundingBox::setDimensions(glm::vec3& center, glm::vec3&size) {
 }
 
 
-void BoundingBox::Draw(glm::mat4& view, glm::mat4& projection, glm::mat4 &model)
+void BoundingBox::Draw(glm::mat4 &mvp)
 {
     // Model(s) rendering
     shader->useShader();
-    GLint modelLoc = glGetUniformLocation(shader->Program, "model");
-    GLint viewLoc = glGetUniformLocation(shader->Program, "view");
-    GLint projLoc = glGetUniformLocation(shader->Program, "projection");
-    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+    GLint mvpLoc = glGetUniformLocation(shader->Program, "MVP");
+    glUniformMatrix4fv(mvpLoc, 1, GL_FALSE, glm::value_ptr(mvp * transform));
 
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(transform * model));
     glBindVertexArray(this->shapeVAO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo_elements);
     glLineWidth(1);

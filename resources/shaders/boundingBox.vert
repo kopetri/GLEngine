@@ -2,15 +2,9 @@
 
 in vec3 pos;
 
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-
-out vec3 viewPos;
+uniform mat4 MVP;
 
 void main()
 {
-    vec4 tmp = projection * view * model * vec4(pos, 1.0);
-    viewPos = tmp.xyz;
-    gl_Position = tmp;
+    gl_Position = MVP * vec4(pos, 1.0);
 }

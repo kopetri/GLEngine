@@ -17,7 +17,7 @@ class BoundingBox
         BoundingBox();
         ~BoundingBox();
         void setDimensions(glm::vec3& center, glm::vec3&size);
-        void Draw(glm::mat4& view, glm::mat4& projection, glm::mat4 &model = glm::mat4(1.0));
+        void Draw(glm::mat4 &mvp);
 
     private:
         void setup();
