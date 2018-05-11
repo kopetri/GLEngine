@@ -30,6 +30,7 @@ class Model
 
         glm::vec3 getSize() { return size; }
         glm::vec3 getCenter() { return center; }
+        std::vector<glm::vec3> boundingPoints();
 
     private:
         std::vector<Mesh> meshes;

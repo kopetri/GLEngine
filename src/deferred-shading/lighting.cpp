@@ -35,6 +35,8 @@ Lighting::Lighting(GLuint width, GLuint height) :
     , iblMode(true)
     , enableEnvMap(true)
     , enableBackground(false)
+    , drawPointSource(false)
+    , spinEnvironment(false)
     , width(width)
     , height(height)
 {
@@ -79,6 +81,11 @@ void Lighting::setup()
     lightPoint3->setLight(lightPointPosition3, glm::vec4(lightPointColor3, 1.0f), lightPointRadius3, true);
 
     lightDirectional1->setLight(lightDirectionalDirection1, glm::vec4(lightDirectionalColor1, 1.0f));
+}
+
+float Lighting::random(float min, float max)
+{
+    return ((static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX)) * (max - min)) + min;
 }
 
 void Lighting::draw(Camera &camera, GBuffer &gBuffer, SSAO &ssao, Skybox &skybox, bool segmentation)
@@ -137,10 +144,13 @@ void Lighting::draw(Camera &camera, GBuffer &gBuffer, SSAO &ssao, Skybox &skybox
             Light::lightDirectionalList[i].renderToShader(*lightingBRDFShader.get(), camera);
         }
     }
-
-    glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader->Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(camera.GetViewMatrix())));
+    auto view = camera.GetViewMatrix();
+    if (spinEnvironment)
+        view = glm::rotate(glm::mat4(1.0), glm::radians(random(-180.f, 180.f)), glm::vec3(1, 1, 1));
+    glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader->Program, "inverseView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(view)));
     glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader->Program, "inverseProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(camera.GetProjectionMatrix())));
-    glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader->Program, "view"), 1, GL_FALSE, glm::value_ptr(camera.GetViewMatrix()));
+    glUniformMatrix4fv(glGetUniformLocation(lightingBRDFShader->Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+    
     if (!segmentation) {
         glUniform1f(glGetUniformLocation(lightingBRDFShader->Program, "materialRoughness"), gBuffer.materialRoughness);
         glUniform1f(glGetUniformLocation(lightingBRDFShader->Program, "materialMetallicity"), gBuffer.materialMetallicity);
@@ -176,7 +186,8 @@ void Lighting::forwardPass(Camera &camera, GBuffer &gBuffer)
 
 
     // Shape(s) rendering
-    if (pointMode)
+    
+    if (drawPointSource)
     {
         simpleShader->useShader();
         glUniformMatrix4fv(glGetUniformLocation(simpleShader->Program, "projection"), 1, GL_FALSE, glm::value_ptr(camera.GetProjectionMatrix()));

@@ -14,7 +14,7 @@ const GLfloat defaultCameraYaw = -90.0f;
 const GLfloat defaultCameraPitch = 0.0f;
 const GLfloat defaultCameraSpeed = 4.0f;
 const GLfloat defaultCameraSensitivity = 0.10f;
-const GLfloat defaultCameraFOV = glm::radians(45.0f);
+const GLfloat defaultCameraFOV = glm::radians(63.54f); // iPhone 6.0 source: https://www.wired.com/2015/05/measuring-field-view-iphone-6-camera/
 
 enum Camera_Movement {
     FORWARD,

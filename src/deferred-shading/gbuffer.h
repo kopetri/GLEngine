@@ -46,6 +46,7 @@ public:
     bool useNormalTexture;
     bool negativeNormals;
     bool enableBoundingBox;
+    bool normalizeSize;
 
     // flip axes
     bool flipX;
@@ -60,6 +61,7 @@ public:
 
     void loadModel(const std::string path, const glm::vec3 scale);
     void setTexture(TextureUsage texUse, const char* path, std::string name, bool flip);
+    glm::vec3 objectDimensions();
 private:
     GLuint width;
     GLuint height;

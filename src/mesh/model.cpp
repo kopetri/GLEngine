@@ -139,3 +139,26 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene)
 
     return Mesh(vertices, indices);
 }
+
+std::vector<glm::vec3> Model::boundingPoints()
+{
+    std::vector<glm::vec3> points;
+    auto x_c = getCenter().x;
+    auto y_c = getCenter().y;
+    auto z_c = getCenter().z;
+    auto x = getSize().x / 2.0;
+    auto y = getSize().y / 2.0;
+    auto z = getSize().z / 2.0;
+    // front face
+    points.emplace_back(x_c - x, y_c - y, z_c + z); // -x|-y|+z
+    points.emplace_back(x_c + x, y_c - y, z_c + z); // +x|-y|+z
+    points.emplace_back(x_c + x, y_c + y, z_c + z); // +x|+y|+z
+    points.emplace_back(x_c - x, y_c + y, z_c + z); // -x|+y|+z
+
+    // back face
+    points.emplace_back(x_c - x, y_c - y, z_c - z); // -x|-y|-z
+    points.emplace_back(x_c + x, y_c - y, z_c - z); // +x|-y|-z
+    points.emplace_back(x_c + x, y_c + y, z_c - z); // +x|+y|-z
+    points.emplace_back(x_c - x, y_c + y, z_c - z); // -x|+y|-z
+    return points;
+}

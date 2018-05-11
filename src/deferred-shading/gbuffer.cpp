@@ -27,8 +27,9 @@ GBuffer::GBuffer(const GLuint width, const GLuint height) :
     , flipX(false)
     , flipY(false)
     , flipZ(false)
+    , normalizeSize(false)
     , modelRotationAxis(glm::vec3(0.0f, 1.0f, 0.0f))
-    , modelRotation(glm::vec3(-90.0f, 0.0f, -90.0f))
+    , modelRotation(glm::vec3(-90.0f, 0.0f, 0.0f))
     , modelPosition(glm::vec3(0.0f))
     , modelScale(glm::vec3(0.1f))
     , albedoColor(glm::vec3(1.0f))
@@ -161,11 +162,16 @@ void GBuffer::draw(Camera camera)
     auto rotZ = glm::rotate(glm::mat4(1.0), glm::radians(modelRotation.z), glm::vec3(0, 0, 1));
 
     auto rot = rotX * rotY * rotZ;
+    auto tmp_scale = modelScale;
+    if (normalizeSize) {
+        auto factor = 1.f / objectModel->getSize().x;
+        tmp_scale = glm::vec3(factor);
+    }
     
     model = glm::rotate(model, rotationAngle, modelRotationAxis);
     model *= rot;
-    model = glm::translate(model, -objectModel->getCenter()*modelScale);
-    model = glm::scale(model, modelScale);
+    model = glm::translate(model, -objectModel->getCenter()*tmp_scale);
+    model = glm::scale(model, tmp_scale);
 
     projViewModel = projection * view * model;
 
@@ -243,4 +249,9 @@ void GBuffer::setTexture(TextureUsage texUse, const char* path, std::string name
         std::cout << "unnown TextureUsage given..." << std::endl;
         break;
     }
+}
+
+glm::vec3 GBuffer::objectDimensions()
+{
+    return objectModel->getSize();
 }

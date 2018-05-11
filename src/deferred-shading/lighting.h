@@ -42,6 +42,8 @@ public:
     bool iblMode;
     bool enableEnvMap;
     bool enableBackground;
+    bool spinEnvironment;
+    bool drawPointSource;
 
     std::shared_ptr<Texture> backgroundTexture;
 
@@ -60,6 +62,7 @@ private:
     std::shared_ptr<Light> lightPoint2;
     std::shared_ptr<Light> lightPoint3;
     std::shared_ptr<Light> lightDirectional1;
+    float random(float min, float max);
 
     GLuint width;
     GLuint height;

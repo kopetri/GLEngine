@@ -69,8 +69,8 @@ float random(float min, float max);
 // Variables & objects declarations
 //---------------------------------
 
-GLuint WIDTH = 1200;
-GLuint HEIGHT = 800;
+GLuint WIDTH = 1024;
+GLuint HEIGHT = 720;
 
 GLfloat lastX = WIDTH / 2;
 GLfloat lastY = HEIGHT / 2;
@@ -83,9 +83,16 @@ GLfloat deltaPostprocessTime = 0.0f;
 GLfloat deltaForwardTime = 0.0f;
 GLfloat deltaGUITime = 0.0f;
 
-GLfloat theta = 0.0f;
-GLfloat rho = 0.0f;
+GLfloat theta_min = -glm::pi<float>();
+GLfloat theta_max = 0.0f;
+
+GLfloat rho_min = -glm::pi<float>()*.40f;
+GLfloat rho_max = glm::pi<float>()*.40f;
+
+GLfloat theta = glm::abs(theta_max - theta_min) * 0.5 + theta_min;
+GLfloat rho = glm::abs(rho_max - rho_min) * 0.5 + rho_min;
 GLfloat radius = 3.5;
+glm::vec3 lookAt = glm::vec3(0.0f);
 
 bool cameraMode;
 
@@ -97,32 +104,40 @@ bool guiIsOpen = true;
 bool isOrbitCamera = false;
 
 bool keys[1024];
+
+std::vector<bool> invertNormal = {
+    true,
+    true,
+    false,
+    true,
+    true,
+    true,
+    true,
+    false,
+    false
+};
+
 /*
 std::vector<bool> invertNormal = {
-    true,
-    true,
-    true
+false,
+true,
+true,
+false,
+true,
+true,
+true,
+true,
+false,
+true,
+true,
+true,
+true,
+false,
+true,
+false,
+false,
 };
 */
-std::vector<bool> invertNormal = {
-    false,
-    true,
-    true,
-    false,
-    true,
-    true,
-    true,
-    true,
-    false,
-    true,
-    true,
-    true,
-    true,
-    false,
-    true,
-    false,
-    false,
-};
 
 /*
 std::vector<bool> invertNormal = {
@@ -182,7 +197,7 @@ std::vector<bool> invertNormal = {
 */
 
 int frame = -1;
-int h_views = 65;
+int h_views = 10;
 int v_views = 5;
 int curr_h, curr_v = 0;
 int imageCount = h_views * v_views;
@@ -195,6 +210,8 @@ int recorded_frame = 0;
 bool use_unique_output_index = false;
 bool iterate_over_skyboxes = false;
 bool random_views = true;
+bool random_lookAt = true;
+
 
 bool targetRendered = false;
 bool labelRendered = false;
@@ -291,7 +308,7 @@ int main(int argc, char* argv[])
     //---------
     // Model(s) 
     //---------
-    for (auto & p : fs::directory_iterator(std::string(MODEL_PATH).append("pool2/")))
+    for (auto & p : fs::directory_iterator(std::string(MODEL_PATH).append("data9/")))
     {
         if(!is_directory(p))
         {
@@ -389,6 +406,7 @@ int main(int argc, char* argv[])
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
     gBuffer.loadModel(model_pool_paths[0].generic_string(), glm::vec3(2.0));
+    gBuffer.negativeNormals = invertNormal[0];
 
     while (!glfwWindowShouldClose(window))
     {   
@@ -610,6 +628,7 @@ void imGuiSetup()
 
             if (ImGui::TreeNode("Point"))
             {
+                ImGui::Checkbox("Draw light source", &lighting.drawPointSource);
                 if (ImGui::TreeNode("Position"))
                 {
                     ImGui::SliderFloat3("Point 1", (float*)&lighting.lightPointPosition1, -5.0f, 5.0f);
@@ -671,6 +690,7 @@ void imGuiSetup()
             if (lighting.enableEnvMap)
             {
                 ImGui::Checkbox("Iterate over skyboxes", &iterate_over_skyboxes);
+                ImGui::Checkbox("Spin Environment Map", &lighting.spinEnvironment);
                 if (ImGui::TreeNode("Environment map"))
                 {
                     if (ImGui::Button("Appartment"))
@@ -787,8 +807,10 @@ void imGuiSetup()
             ImGui::SliderFloat("ISO", &postprocess.cameraISO, 100.0f, 3200.0f);
             ImGui::Checkbox("Orbitting Camera", &isOrbitCamera);
             ImGui::Checkbox("Random views", &random_views);
+            ImGui::Checkbox("Random lookAt", &random_lookAt);
             if(isOrbitCamera)
             {
+                ImGui::Checkbox("Normalize Size", &gBuffer.normalizeSize);
                 ImGui::Checkbox("Unique Output Index", &use_unique_output_index);
                 if (recording) {
                     if (ImGui::Button("Stop Recording")) {
@@ -803,21 +825,32 @@ void imGuiSetup()
                     }
                 }
                 
-                ImGui::SliderFloat("Theta", &theta, -glm::pi<float>()/2.f, glm::pi<float>()/2.f);
-                ImGui::SliderFloat("Rho", &rho, -glm::pi<float>()*.5f, glm::pi<float>()*.5f);
+                ImGui::SliderFloat("Theta", &theta, theta_min, theta_max);
+                ImGui::SliderFloat("Rho", &rho, rho_min, rho_max);
                 ImGui::SliderFloat("Radius", &radius, 1.0, 10.f);
+                ImGui::SliderFloat("Look at x", (float*)&lookAt.x, -gBuffer.objectDimensions().x*0.5, gBuffer.objectDimensions().x*0.5);
+                ImGui::SliderFloat("Look at y", (float*)&lookAt.y, -gBuffer.objectDimensions().z*0.5, gBuffer.objectDimensions().z*0.5);
+                ImGui::SliderFloat("Look at z", (float*)&lookAt.z, -gBuffer.objectDimensions().y*0.5, gBuffer.objectDimensions().y*0.5);
                 
+                // set radius
+                auto dims = gBuffer.objectDimensions();
                 const auto d = glm::cos(rho) * radius;
                 const auto x = d * glm::cos(theta);
                 const auto y = glm::sqrt(radius * radius - d * d) * (rho<0 ? 1.0f : -1.0f);
                 const auto z = d * glm::sin(theta);
+                ImGui::SliderFloat3("Camera position", (float*)&glm::vec3(x,y,z), 0, 1);
+                const auto yDir = glm::vec3(0, 1, 0);
+                const auto viewDir = glm::normalize(lookAt - glm::vec3(x, y, z));
+                const auto rightDir = glm::normalize(glm::cross(viewDir, yDir));
+                const auto newLookUp = glm::normalize(glm::cross(rightDir, viewDir));
                 if (glm::abs(rho) >= glm::pi<float>()*.5f)
                 {
-                    camera.lookAt(glm::vec3(x, y, z), glm::vec3(0.f), glm::vec3(0.f, -1.f, 0.f));
+                    camera.lookAt(glm::vec3(x, y, z), lookAt, -newLookUp);
                 }else
                 {
-                    camera.lookAt(glm::vec3(x, y, z), glm::vec3(0.f), glm::vec3(0.f, 1.f, 0.f));
+                    camera.lookAt(glm::vec3(x, y, z), lookAt, newLookUp);
                 }
+
             }
             ImGui::TreePop();
         }
@@ -1051,8 +1084,8 @@ float random(float min, float max)
 void updatePose()
 {
     if (random_views) {
-        theta = random(-glm::pi<float>() / 2.0f, glm::pi<float>() / 2.0f);
-        rho = random(-glm::pi<float>(), 0);
+        theta = random(theta_min, theta_max);
+        rho = random(rho_min, rho_max);
         radius = random(1.7f, 3.5f);
     }
     else {
@@ -1066,10 +1099,15 @@ void updatePose()
             curr_v = 0;
         }
 
-        theta = glm::mix(-glm::pi<float>() / 2.0f, glm::pi<float>() / 2.0f, static_cast<float>(curr_h) / static_cast<float>(h_views-1));
-        rho = glm::mix(-glm::pi<float>()*.5f, glm::pi<float>()*.5f, static_cast<float>(curr_v) / static_cast<float>(v_views-1));
+        theta = glm::mix(theta_min, theta_max, static_cast<float>(curr_h) / static_cast<float>(h_views-1));
+        rho = glm::mix(rho_min, rho_max, static_cast<float>(curr_v) / static_cast<float>(v_views-1));
 
         curr_h++;
+    }
+    if (random_lookAt) {
+        lookAt.x = random(-gBuffer.objectDimensions().x*0.5, gBuffer.objectDimensions().x*0.5);
+        lookAt.y = random(-gBuffer.objectDimensions().z*0.5, gBuffer.objectDimensions().z*0.5);
+        lookAt.z = random(-gBuffer.objectDimensions().y*0.5, gBuffer.objectDimensions().y*0.5);
     }
     lighting.lightDirectionalDirection1.x = -5; //random(-5.f, 5.f);
     lighting.lightDirectionalDirection1.y = -5; //random(-5.f, 5.f);
